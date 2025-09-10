@@ -1,22 +1,8 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdint.h>
 #define ACL_SIZE 99
 #define BLOCK_SIZE 10
-
-typedef unsigned char int8;
-typedef unsigned short int int16;
-typedef unsigned int int32;
-typedef unsigned long long int int64;
-
-/*
-interface e0/0 --
-interface number
-name: insider/dmz/outsider
-MAC address of the interface
-IP address of the interface 
-security level 0 - e(Hexadecimal, 0 - 16 decimal)
-
-*/
 
 enum e_action{
     permit = 1,
@@ -27,13 +13,14 @@ typedef enum e_action action;
 
 typedef struct s_network
 {
-    unsigned int ip : 32; // 32 bits for IP address
-    unsigned char subnet : 5; // 5 bits for CIDR (0-32)
+    uint32_t ip; // 32 bits for IP address
+    uint8_t subnet; // 5 bits for CIDR (0-32)
+
 }network;
 
 typedef struct s_user{
-    unsigned char username[16]; // Username up to 31 characters + null terminator
-    unsigned int pin : 14; // 10 bits for pincode (0-10000)
+    unsigned char username[16]; // Username up to 16 characters + null terminator
+    uint16_t pin; // * Give only 10 bits for the pin by checking the input
     bool root : 1; // 1 bit for root status
 }user;
 
@@ -46,21 +33,28 @@ typedef struct s_stdce{ // standard control entry structure
 typedef stdace stdacl[ACL_SIZE]; // access control list with max 100 entries
 
 typedef struct s_rootkey{
-    unsigned int key : 10; // 10 bits for rootkey
-    unsigned long int n : 23; // 23 bits for rounds (0-8000000)
+    uint32_t key; // 10 bits for rootkey
+    uint32_t n : 23; // 23 bits for hashing rounds (0-8000000)
 }rootkey;
+
+typedef enum 
+{   low = 1, 
+    medium = 5, 
+    high = 15
+}
+sec_level;
 
 typedef struct s_interface
 {
     unsigned char id : 3; //3 bits - 8 interfaces
-    unsigned long long int mac : 48; //48 bits for mac_address
+    uint64_t mac; //* To check the input for 48 bits instead of 64
     network net; //network structure
     struct {
         bool l1 : 1;
         bool l3 : 1;
     };
     unsigned char zone_name[16]; // Zone name up to 15 characters + null terminator
-    unsigned char sec_level : 4; //4 bits for security level (0-16)
+    sec_level level; //security level as enum 
     stdacl *aclin; //Inbound ACL - ACL for incoming packets
     stdacl *aclout; //Outbound ACL - ACL for outcoming packets
 }interface;
@@ -74,16 +68,13 @@ typedef struct s_config{
 
 
 typedef struct s_dynamic{
-    unsigned int count;// Number of values
-    unsigned int size; // Actual size of the dynamic array
-    unsigned int capacity; // The capacity the array can hold for now
-    unsigned int *data; // The data stored in the array - can be at any type
+    uint32_t count;// Number of values
+    uint32_t size; // Actual size of the dynamic array
+    uint32_t capacity; // The capacity the array can hold for now - DYNAMIC
+    uint32_t *data; // The data stored in a dynamic array - can be at any type
 }dynamic;
 
 dynamic* dynMake_(unsigned int);
 
 
-
 void dynAdd(dynamic* arr, void* val);
-
-
