@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include "Firewall.h"
 
-dynamic *dynMake_(unsigned int entrysize){
+dynamic *dynMake_(unsigned int entrysize){ //Dynamic array constructor
     dynamic *p;
     unsigned int size = sizeof(struct s_dynamic) + (BLOCK_SIZE * entrysize); //Size of the minimal dynamic array length + size of the entries
     p = (dynamic*)(malloc(size));
