@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
 #define ACL_SIZE 99
@@ -17,19 +18,21 @@ static void dynInit_##name(dynamic_##name *arr, unsigned int capacity) {        
 }            
 
 
-#define static void dynInsertValue(type value, dynamic_##name *arr){                                \
+#define static void dynInsertValue(type value, dynamic_##name *arr){                         \
     if(arr->size == arr->capacity){                                                          \
-            arr->capacity = arr->capacity * 2;  \
-    } \
-    if(arr->capacity == 0){ \
-        arr->capacity = 8;  \
-    }\
-    arr->data = realloc(arr->data, sizeof(value) + sizeof(arr->data));\
-    if(data == null){ \
-        printf("Allocation failed");\
-    }\
-    //Need more progress still \
-}\
+            arr->capacity = arr->capacity * 2;                                               \
+    }                                                                                        \
+    if(arr->capacity == 0){                                                                  \
+        arr->capacity = 8;                                                                   \
+    }                                                                                        \
+    arr->data = realloc(arr->data,sizeof(value) * arr->capacity);                       \ 
+    if(arr->data == NULL){                                                                        \
+        printf("Allocation failed");                                                         \
+        exit(1);                                                                             \     
+    }                                                                                        \
+    arr->data[arr->size] = value;                                                             \
+    arr->size++;                                                                                 \
+}                                                                                            \
 
 enum e_action{
     permit = 1,
