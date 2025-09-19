@@ -11,28 +11,35 @@ typedef struct {                                                                
     uint32_t capacity;                                                                       \
 } dynamic_##name;                                                                            \
                                                                                              \
-static void dynInit_##name(dynamic_##name *arr, unsigned int capacity) {                     \
+                                                                                             \
+ static void dynInit_##name(dynamic_##name *arr, unsigned int capacity) {                    \
     arr->data = NULL;                                                                        \
     arr->size = 0;                                                                           \
     arr->capacity = capacity;                                                                \
-}            
-
-
-#define static void dynInsertValue(type value, dynamic_##name *arr){                         \
+}                                                                                            \
+                                                                                             \
+                                                                                             \
+static void dynInsertValue(type value, dynamic_##name *arr){                                 \
     if(arr->size == arr->capacity){                                                          \
             arr->capacity = arr->capacity * 2;                                               \
     }                                                                                        \
     if(arr->capacity == 0){                                                                  \
         arr->capacity = 8;                                                                   \
     }                                                                                        \
-    arr->data = realloc(arr->data,sizeof(value) * arr->capacity);                       \ 
-    if(arr->data == NULL){                                                                        \
+    arr->data = realloc(arr->data,sizeof(value) * arr->capacity);                            \ 
+    if(arr->data == NULL){                                                                   \
         printf("Allocation failed");                                                         \
         exit(1);                                                                             \     
     }                                                                                        \
-    arr->data[arr->size] = value;                                                             \
-    arr->size++;                                                                                 \
+    arr->data[arr->size] = value;                                                            \
+    arr->size++;                                                                             \
 }                                                                                            \
+static void dynFree(dynamic_##name *arr){                                                    \
+    free(arr->data);                                                                         \
+    arr->data = NULL;                                                                        \
+    arr->size = 0;                                                                           \
+    arr->capacity = 0;                                                                       \
+}                                                                                            \                                                                                           
 
 enum e_action{
     permit = 1,
@@ -41,30 +48,32 @@ enum e_action{
 
 typedef enum e_action action;
 
+// To convert IP, PIN, KEY, MAC to MSB by htonl function when writing and convert back to LSB while readin with ntonl
 typedef struct s_network
 {
-    uint32_t ip; // To convert to MSB by htonl function when writing and convert back to LSB while readin with ntonl
+    uint32_t ip;
     uint8_t subnet;
 
 }network;
 
 typedef struct s_user{
     unsigned char username[16];
-    uint16_t pin; // * Give only 10 bits for the pin by checking the input
-    bool root : 1;
+    uint16_t pin; // * Give only 10 bits for the pin by checking the input. 
+    bool root;
 }user;
 
 typedef struct s_stdce{ // standard control entry structure
-    unsigned char act; //For "Permit" or "Deny"
+    action act; //For "Permit" or "Deny"
     network net;
 
 }stdace;
 
 typedef stdace stdacl[ACL_SIZE]; // access control list with max 100 entries
 
+DECLARE_DYNAMIC(uint32_t, key)
 typedef struct s_rootkey{
-    uint32_t key;
-    uint32_t n; //hashing rounds
+    dynamic_key key; //Dynamic array of keys for multiple roots
+    uint32_t n; //Hashing rounds. Should check the input and cap the number of hashing rounds.
 }rootkey;
 
 typedef enum 
@@ -76,7 +85,7 @@ sec_level;
 
 typedef struct s_interface
 {
-    uint8_t id;
+    uint8_t id; //ID should be previous ID + 1
     uint8_t mac[6];
     network net;
     struct {
@@ -89,9 +98,14 @@ typedef struct s_interface
     stdacl *aclout; //ACL for outgoing packets
 }interface;
 
-//typedef struct s_config{//Might be removed later
-    //dynamic *iface;
-    //dynamic *account; // A dynamic array of users where void *data is user typed
-    //rootkey key;
-//}config;
+// Dynamic array declarations for interfaces and users. Now the functions declared inside the DYNAMIC_DECLARED are pasted here for each of the arrays.
+DECLARE_DYNAMIC(interface, interfaces) 
+DECLARE_DYNAMIC(user, users)
+
+
+typedef struct s_config{
+    dynamic_interfaces *interface;
+    dynamic_users *account; 
+    rootkey key;
+}config;
 
