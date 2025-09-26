@@ -34,6 +34,20 @@ static void dynInsertValue(type value, dynamic_##name *arr){                    
     arr->data[arr->size] = value;                                                            \
     arr->size++;                                                                             \
 }                                                                                            \
+static void dynRemoveByIndex(unsigned int index, dynamic_##name *arr){                       \ 
+    bool indexFound;                                                                         \
+    for (unsigned int i = 0; i < arr->size; i++)                                             \
+    {                                                                                        \
+        if(i == index){                                                                      \
+            indexFound = true;                                                               \
+        }                                                                                    \
+        if(indexFound){                                                                      \
+            arr[i] = arr[i + 1];                                                             \
+        }                                                                                    \
+    }                                                                                        \
+    arr->size = arr->size - 1;                                                               \
+    return;                                                                                  \
+}                                                                                            \
 static void dynFree(dynamic_##name *arr){                                                    \
     free(arr->data);                                                                         \
     arr->data = NULL;                                                                        \
@@ -58,7 +72,6 @@ typedef struct s_network
 
 typedef struct s_user{
     unsigned char username[16];
-    uint16_t pin; // * Give only 10 bits for the pin by checking the input. 
     bool root;
 }user;
 
@@ -70,10 +83,8 @@ typedef struct s_stdce{ // standard control entry structure
 
 typedef stdace stdacl[ACL_SIZE]; // access control list with max 100 entries
 
-DECLARE_DYNAMIC(uint32_t, key)
 typedef struct s_rootkey{
-    dynamic_key key; //Dynamic array of keys for multiple roots
-    uint32_t n; //Hashing rounds. Should check the input and cap the number of hashing rounds.
+    unsigned char key; //Dynamic array of keys for multiple roots
 }rootkey;
 
 typedef enum 
@@ -91,7 +102,7 @@ typedef struct s_interface
     struct {
         bool l1 : 1;
         bool l3 : 1;
-    };
+    }shutdown; //If layer 1 is closed - no traffic is permitted. If layer 3 is closed - rule based filtering by IPs and etc 
     unsigned char zone_name[16];
     sec_level level;
     stdacl *aclin; //ACL for incoming packets
@@ -104,8 +115,8 @@ DECLARE_DYNAMIC(user, users)
 
 
 typedef struct s_config{
-    dynamic_interfaces *interface;
-    dynamic_users *account; 
-    rootkey key;
+    dynamic_interfaces *interfaces;
+    dynamic_users *accounts; 
+    unsigned char key[16];
 }config;
 
