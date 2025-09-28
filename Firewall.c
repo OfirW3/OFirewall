@@ -83,3 +83,37 @@ void removeUser(config *cfg, const unsigned char username){
     }
 }
 
+void addInterface(config *cfg, network net, const unsigned char zone[16], uint8_t mac[6], sec_level level){
+    interface new_iface = {
+        cfg->interfaces[cfg->interfaces->size]->id + 1;
+        mac;
+        net;
+        {
+            false;
+            false;
+        }
+        zone;
+        level;
+        NULL;
+        NULL;
+    }
+    dynInsertValue(new_iface, cfg->interfaces);
+    return;
+}
+
+void removeInterface(config *cfg, uint8_t id){
+    int8_t index = 0;
+    bool index_found = false;
+    while((!index_found) && (index < cfg -> interfaces -> size)){
+        if(cfg -> interfaces[index] -> id == id){
+            index_found = true;
+        }
+        index++;
+    }
+    if(!index_found){
+        fprintf(stderr, "The given interface ID has not found");
+        return;
+    }
+    dynRemoveByIndex(index,cfg->interfaces);
+    return;
+}

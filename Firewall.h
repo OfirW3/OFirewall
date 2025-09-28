@@ -36,7 +36,7 @@ static void dynInsertValue(type value, dynamic_##name *arr){                    
 }                                                                                            \
 static void dynRemoveByIndex(unsigned int index, dynamic_##name *arr){                       \ 
     bool indexFound;                                                                         \
-    for (unsigned int i = 0; i < arr->size; i++)                                             \
+    for (unsigned int i = 0; i < arr->size - 1; i++)                                         \
     {                                                                                        \
         if(i == index){                                                                      \
             indexFound = true;                                                               \
