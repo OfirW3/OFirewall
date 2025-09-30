@@ -3,6 +3,7 @@
 #include <string.h>
 #include <openssl/sha.h>
 #include "Firewall.h"
+#include <math.h>
 #define HASHING_ROUNDS 25
 
 int main(){
@@ -55,7 +56,7 @@ bool checkKey(config *cfg){ //True if the hashed input key matches the hashed ro
 
 void addUser(config *cfg, const unsigned char username, bool root){
     if(getUser(cfg, username) != -1){
-        printf("Username already exists. \n");
+        fprintf(stderr,"Error: Username already exists. \n");
         return;
     }
     user insertUser;
@@ -102,18 +103,32 @@ void addInterface(config *cfg, network net, const unsigned char zone[16], uint8_
 }
 
 void removeInterface(config *cfg, uint8_t id){
-    int8_t index = 0;
-    bool index_found = false;
-    while((!index_found) && (index < cfg -> interfaces -> size)){
-        if(cfg -> interfaces[index] -> id == id){
-            index_found = true;
-        }
-        index++;
-    }
-    if(!index_found){
-        fprintf(stderr, "The given interface ID has not found");
+    dynRemoveByIndex(id, cfg->interfaces); //ID represents the index - from 0 to interface array's size.
+    return;
+}
+
+void setACL(config *cfg, uint8_t id, stdacl *inbound, stdacl *outbound){
+    interface* iface = dynGetByIndex(id, cfg->interfaces);
+    if(iface == NULL){
+        fprintf(stderr,"Error: Interface has not found. \n");
         return;
     }
-    dynRemoveByIndex(index,cfg->interfaces);
+    interface->aclin = inbound;
+    interface->aclout = outbound;
     return;
+}
+
+action matchACL(stdacl *acl, uint32_t ip){
+    for (uint8_t i = 0; i < ACL_SIZE; i++)
+    {
+        stdace entry = acl[i];
+        uint32_t entry_ip = acl[i]->net->ip;
+        if(entry_ip == ip){
+            return entry->act;
+        }
+        uint32_t subnet_size = pow(2, (entry->net->subnet));
+        
+
+    }
+    
 }

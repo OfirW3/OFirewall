@@ -47,7 +47,16 @@ static void dynRemoveByIndex(unsigned int index, dynamic_##name *arr){          
     }                                                                                        \
     arr->size = arr->size - 1;                                                               \
     return;                                                                                  \
-}                                                                                            \
+}\
+static *type dynGetByIndex(uint16_t index, dynamic_##name *arr){                              \
+    for (uint16_t i = 0; i < arr->size; i++)                                                 \
+    {                                                                                           \
+        if(i == index){                                                                     \
+            return arr[i];                                                                   \
+        }                                                                                    \
+    }\
+    return NULL;\
+}                                                                  \
 static void dynFree(dynamic_##name *arr){                                                    \
     free(arr->data);                                                                         \
     arr->data = NULL;                                                                        \
@@ -78,7 +87,6 @@ typedef struct s_user{
 typedef struct s_stdce{ // standard control entry structure
     action act; //For "Permit" or "Deny"
     network net;
-
 }stdace;
 
 typedef stdace stdacl[ACL_SIZE]; // access control list with max 100 entries
