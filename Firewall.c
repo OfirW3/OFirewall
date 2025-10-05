@@ -14,14 +14,13 @@ int main(){
 void configInit(config *cfg){
     dynInit_interfaces(cfg->interfaces, 4);
     dynInit_users(cfg->accounts, 8);
-    dynInit_key(cfg->key->key, 8);
 }
 
-int getUserIndex(config *cfg, const unsigned char username){
-    dynamic_users arr = cfg->accounts
+int getUserIndex(config *cfg, const unsigned char *username){
+    dynamic_users *arr = cfg->accounts;
     for (size_t i = 0; i < arr->size; i++)
     {
-        if(arr[i]->username){
+        if(!(strcmp(arr->data[i].username, username))){
             return i;
         }
     }
@@ -35,7 +34,7 @@ bool checkKey(config *cfg){ //True if the hashed input key matches the hashed ro
     unsigned char buffer[16];
     fscanf(stdin,"%s",buffer);
     unsigned char hashed_key[32];
-    SHA256(buffer,strlen((char*)data), hashed_key);
+    SHA256(buffer,strlen(buffer), hashed_key);
     if(!strcmp(hashed_key,cfg->key)){
         printf("Success! \n");
         return true;;
@@ -54,30 +53,20 @@ bool checkKey(config *cfg){ //True if the hashed input key matches the hashed ro
     return false;
 }
 
-void addUser(config *cfg, const unsigned char username, bool root){
+void addUser(config *cfg, const char username[16], bool root){
     if(getUser(cfg, username) != -1){
         fprintf(stderr,"Error: Username already exists. \n");
         return;
     }
     user insertUser;
-    if(root){
-        if(checkKey(cfg)){
-            insertUser->root = true;
-        }
-        else{
-            insertUser->root = false;
-        }
-    }
-    else{
-        insertUser->root = false;
-    }
-    insertUser->username = username;
-    dynInsertValue(insertUser, cfg->accounts); //Did I call the function correctly?
+    insertUser.root = checkKey(cfg) && root;
+    strcpy(insertUser.username, username);
+    dynInsertValue_users(insertUser, cfg->accounts);
     return;
 }
 
 void removeUser(config *cfg, const unsigned char username){
-    int index = getUser(cfg,username)
+    int index = getUser(cfg,username);
     if(index == -1){
         fprintf(stderr, "Error: User not found. \n");
         return;
@@ -85,19 +74,20 @@ void removeUser(config *cfg, const unsigned char username){
 }
 
 void addInterface(config *cfg, network net, const unsigned char zone[16], uint8_t mac[6], sec_level level){
-    interface new_iface = {
-        cfg->interfaces[cfg->interfaces->size]->id + 1;
-        mac;
-        net;
+    interface new_iface =
+    {
+        cfg->interfaces[cfg->interfaces->size]->id + 1,
+        mac,
+        net,
         {
-            false;
-            false;
-        }
-        zone;
-        level;
-        NULL;
-        NULL;
-    }
+            false,
+            false
+        },
+        zone,
+        level,
+        NULL,
+        NULL
+    };
     dynInsertValue(new_iface, cfg->interfaces);
     return;
 }
@@ -113,22 +103,44 @@ void setACL(config *cfg, uint8_t id, stdacl *inbound, stdacl *outbound){
         fprintf(stderr,"Error: Interface has not found. \n");
         return;
     }
-    interface->aclin = inbound;
-    interface->aclout = outbound;
+    iface->aclin = inbound;
+    iface->aclout = outbound;
     return;
 }
 
-action matchACL(stdacl *acl, uint32_t ip){
+action matchACL(stdacl *acl, uint32_t ip){ //Return the specified action for the given IP by the acl. If none action was specified, dropping the packet.
     for (uint8_t i = 0; i < ACL_SIZE; i++)
     {
-        stdace entry = acl[i];
-        uint32_t entry_ip = acl[i]->net->ip;
+        stdace *entry = acl[i];
+        uint32_t entry_ip = entry->net->ip;
         if(entry_ip == ip){
             return entry->act;
         }
-        uint32_t subnet_size = pow(2, (entry->net->subnet));
-        
-
+        uint32_t entry_cidr = pow(2, (32 - entry->net->subnet));
+        uint32_t network_addr = entry_ip & entry_cidr; //Given IP but zero for each network bit.
+        uint32_t broadcast_addr = network_addr | ~entry_cidr; //Network IP but one for each host bit.
+        if(ip >= network_addr && ip <= broadcast_addr){
+            return entry->act;
+        }
     }
-    
+    fprintf(stderr,"Warning: No specified action was found on the ACL. Dropping the packet.");
+    return drop;
+}
+
+action processPacket(interface *iface, bool incoming, uint32_t srcIP, uint32_t dstIP){ //Figure out from what interface the packet came for and get the right action by the packet's IP
+    if(incoming){
+        if(matchACL(iface->aclin,srcIP) == drop){
+            return drop;
+        }
+        else{
+            return permit;
+        }
+    }
+    else{
+        if(matchACL(iface->aclout, dstIP) == drop){
+            return drop;
+        }
+        return permit;
+    }
+    return drop;
 }
