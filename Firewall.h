@@ -92,7 +92,7 @@ typedef enum
 sec_level;
 
 typedef struct s_interface {
-    uint8_t id;
+    uint8_t id; 
     uint8_t mac[6];
     network net;
     struct {

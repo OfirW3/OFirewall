@@ -34,10 +34,10 @@ bool checkKey(config *cfg){ //True if the hashed input key matches the hashed ro
     unsigned char buffer[16];
     fscanf(stdin,"%s",buffer);
     unsigned char hashed_key[32];
-    SHA256(buffer,strlen(buffer), hashed_key);
+    SHA256(buffer,strlen(buffer), hashed_key); 
     if(!strcmp(hashed_key,cfg->key)){
         printf("Success! \n");
-        return true;;
+        return true;
     }
     else{
           tries++;
@@ -74,21 +74,18 @@ void removeUser(config *cfg, const unsigned char username){
 }
 
 void addInterface(config *cfg, network net, const unsigned char zone[16], uint8_t mac[6], sec_level level){
-    interface new_iface =
-    {
-        cfg->interfaces[cfg->interfaces->size]->id + 1,
-        mac,
-        net,
-        {
-            false,
-            false
-        },
-        zone,
-        level,
-        NULL,
-        NULL
-    };
-    dynInsertValue(new_iface, cfg->interfaces);
+    interface *iface = (interface*)malloc(sizeof(interface));
+    if(!iface){
+        fprintf(stderr,"Error: Memory allocation failed");
+    }
+    iface->id = cfg->interfaces->size;
+    memcpy(iface->mac, mac, 6);
+    iface->net = net;
+    iface->shutdown.l1 = false;
+    iface->shutdown.l3 = false;
+    memcpy(iface->zone_name, zone, 16);
+    iface->level = level;
+    dynInsertValue(iface, cfg->interfaces);
     return;
 }
 
