@@ -1,14 +1,86 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <openssl/sha.h>
+#include <stdint.h>
 #include "Firewall.h"
 #include <math.h>
 #define HASHING_ROUNDS 25
+uint32_t make_ip(uint8_t a, uint8_t b, uint8_t c, uint8_t d);
 
-int main(){
-    printf("%d",sizeof(unsigned int));
+int main() {
+    // 1️⃣ Create config
+    config cfg;
+    dynamic_interfaces interfaces;
+    dynamic_users users;
+
+    cfg.interfaces = &interfaces;
+    cfg.accounts = &users;
+
+    dynInit_interfaces(cfg.interfaces, 4);
+    dynInit_users(cfg.accounts, 8);
+    memset(cfg.key, 0, sizeof(cfg.key));
+
+    // 2️⃣ Create a network struct for the interface
+    network dmz_net;
+    dmz_net.ip = make_ip(192,168,10,1); // DMZ interface IP
+    dmz_net.subnet = 24;                // 255.255.255.0
+
+    // 3️⃣ Zone name and MAC address
+    unsigned char zone_name[16] = "DMZ";
+    uint8_t mac[6] = {0x00, 0x1A, 0x2B, 0x3C, 0x4D, 0x5E};
+
+    // 4️⃣ Add interface to config
+    addInterface(&cfg, dmz_net, zone_name, mac, medium);
+
+    // 5️⃣ Assign example ACLs
+    stdacl *inACL = malloc(sizeof(stdacl));
+    stdacl *outACL = malloc(sizeof(stdacl));
+    initExampleACLs(inACL, outACL);
+
+    setACL(&cfg, 0, inACL, outACL);
+
+    // 6️⃣ Print summary
+    interface *iface = dynGetByIndex_interfaces(0, cfg.interfaces);
+    if (iface) {
+        printf("Interface ID: %u\n", iface->id);
+        printf("Zone name: %s\n", iface->zone_name);
+        printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
+               iface->mac[0], iface->mac[1], iface->mac[2],
+               iface->mac[3], iface->mac[4], iface->mac[5]);
+        printf("IP: %u.%u.%u.%u/%u\n",
+               (iface->net.ip >> 24) & 0xFF, (iface->net.ip >> 16) & 0xFF,
+               (iface->net.ip >> 8) & 0xFF, iface->net.ip & 0xFF,
+               iface->net.subnet);
+        printf("Security level: %d\n", iface->level);
+        printf("Shutdown L1: %d, L3: %d\n", iface->shutdown.l1, iface->shutdown.l3);
+    }
+
+    dynFree_interfaces(cfg.interfaces);
+    dynFree_users(cfg.accounts);
+    free(inACL);
+    free(outACL);
+
     return 0;
+}
+
+void initExampleACLs(stdacl *inbound, stdacl *outbound) {
+    // Permit 192.168.10.0/24 inbound
+    inbound[0]->act = permit;
+    inbound[0]->net = malloc(sizeof(network));
+    inbound[0]->net->ip = make_ip(192,168,10,0);
+    inbound[0]->net->subnet = 24;
+
+    // Drop everything else inbound
+    inbound[1]->act = drop;
+    inbound[1]->net = malloc(sizeof(network));
+    inbound[1]->net->ip = 0;
+    inbound[1]->net->subnet = 0;
+
+    // Permit outbound all
+    outbound[0]->act = permit;
+    outbound[0]->net = malloc(sizeof(network));
+    outbound[0]->net->ip = make_ip(0,0,0,0);
+    outbound[0]->net->subnet = 0;
 }
 
 void configInit(config *cfg){
@@ -27,14 +99,33 @@ int getUserIndex(config *cfg, const unsigned char *username){
     return -1;
 }
 
+uint32_t make_ip(uint8_t a, uint8_t b, uint8_t c, uint8_t d) { //To understand 
+    return ((uint32_t)a << 24) | ((uint32_t)b << 16) | ((uint32_t)c << 8) | d;
+}
+
+uint32_t rotate_left(uint32_t x, uint8_t n) { //To understand
+    return (x << n) | (x >> (32 - n));
+}
+
+uint32_t pesudo_hash(const unsigned char *data, size_t len, uint32_t rounds) { //To understand
+    uint32_t hash = 0xABCDEF01;
+    for (uint32_t r = 0; r < rounds; r++) {
+        for (size_t i = 0; i < len; i++) {
+            hash ^= (data[i] + r * 31);
+            hash = rotate_left(hash, 5) * 2654435761u;
+        }
+    }
+    return hash;
+}
+
 bool checkKey(config *cfg){ //True if the hashed input key matches the hashed root key. Otherwise, false.
     unsigned int tries = 0;
     wrong_key:
     printf("Enter the root key: \n");
     unsigned char buffer[16];
-    fscanf(stdin,"%s",buffer);
+    fscanf(stdin,"%15s",buffer);
     unsigned char hashed_key[32];
-    SHA256(buffer,strlen(buffer), hashed_key); 
+    pesudo_hash(buffer,strlen(buffer), hashed_key); 
     if(!strcmp(hashed_key,cfg->key)){
         printf("Success! \n");
         return true;
@@ -54,7 +145,7 @@ bool checkKey(config *cfg){ //True if the hashed input key matches the hashed ro
 }
 
 void addUser(config *cfg, const char username[16], bool root){
-    if(getUser(cfg, username) != -1){
+    if(getUserIndex(cfg, username) != -1){
         fprintf(stderr,"Error: Username already exists. \n");
         return;
     }
@@ -66,7 +157,7 @@ void addUser(config *cfg, const char username[16], bool root){
 }
 
 void removeUser(config *cfg, const unsigned char username){
-    int index = getUser(cfg,username);
+    int index = getUserIndex(cfg,username);
     if(index == -1){
         fprintf(stderr, "Error: User not found. \n");
         return;
@@ -74,23 +165,21 @@ void removeUser(config *cfg, const unsigned char username){
 }
 
 void addInterface(config *cfg, network net, const unsigned char zone[16], uint8_t mac[6], sec_level level){
-    interface *iface = (interface*)malloc(sizeof(interface));
-    if(!iface){
-        fprintf(stderr,"Error: Memory allocation failed");
-    }
-    iface->id = cfg->interfaces->size;
-    memcpy(iface->mac, mac, 6);
-    iface->net = net;
-    iface->shutdown.l1 = false;
-    iface->shutdown.l3 = false;
-    memcpy(iface->zone_name, zone, 16);
-    iface->level = level;
-    dynInsertValue(iface, cfg->interfaces);
+    interface iface;
+    iface.id = cfg->interfaces->size;
+    memcpy(iface.mac, mac, 6);
+    iface.net = net;
+    iface.shutdown.l1 = false;
+    iface.shutdown.l3 = false;
+    memcpy(iface.zone_name, zone, 16);
+    iface.level = level;
+    dynInsertValue_interfaces(iface, cfg->interfaces);
     return;
 }
 
 void removeInterface(config *cfg, uint8_t id){
-    dynRemoveByIndex(id, cfg->interfaces); //ID represents the index - from 0 to interface array's size.
+    dynRemoveByIndex_interfaces(id, cfg->interfaces); //ID represents the index - from 0 to interface array's size.
+    dynRemoveByIndex_users(id,cfg->interfaces);
     return;
 }
 
