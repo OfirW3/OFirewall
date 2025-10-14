@@ -24,8 +24,8 @@ static void dynInsertValue_##name(type value, dynamic_##name *arr) { \
     if (arr->capacity == 0) { \
         arr->capacity = 8; \
     } \
-    arr->data = (type*)(arr->data, sizeof(type) * arr->capacity); \
-    if (arr->data == NULL) { \ 
+    arr->data = (type*)realloc(arr->data, sizeof(type) * arr->capacity); \
+    if (arr->data == NULL) { \
         printf("Allocation failed"); \
         exit(1); \
     } \
@@ -81,7 +81,8 @@ typedef struct s_stdce{ // standard control entry structure
 typedef stdace stdacl[ACL_SIZE]; // access control list with max 100 entries
 
 typedef struct s_rootkey{
-    unsigned char key[16];
+    unsigned char key_str[16];
+    uint16_t hashing_rounds;
 }rootkey;
 
 typedef enum 
@@ -113,7 +114,7 @@ DECLARE_DYNAMIC(user, users);
 typedef struct s_config{
     dynamic_interfaces *interfaces;
     dynamic_users *accounts; 
-    unsigned char key[16];
+    rootkey key;
 }config;
 
 

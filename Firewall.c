@@ -4,69 +4,16 @@
 #include <stdint.h>
 #include "Firewall.h"
 #include <math.h>
-#define HASHING_ROUNDS 25
-uint32_t make_ip(uint8_t a, uint8_t b, uint8_t c, uint8_t d);
 
-int main() {
-    // 1️⃣ Create config
-    config cfg;
-    dynamic_interfaces interfaces;
-    dynamic_users users;
 
-    cfg.interfaces = &interfaces;
-    cfg.accounts = &users;
-
-    dynInit_interfaces(cfg.interfaces, 4);
-    dynInit_users(cfg.accounts, 8);
-    memset(cfg.key, 0, sizeof(cfg.key));
-
-    // 2️⃣ Create a network struct for the interface
-    network dmz_net;
-    dmz_net.ip = make_ip(192,168,10,1); // DMZ interface IP
-    dmz_net.subnet = 24;                // 255.255.255.0
-
-    // 3️⃣ Zone name and MAC address
-    unsigned char zone_name[16] = "DMZ";
-    uint8_t mac[6] = {0x00, 0x1A, 0x2B, 0x3C, 0x4D, 0x5E};
-
-    // 4️⃣ Add interface to config
-    addInterface(&cfg, dmz_net, zone_name, mac, medium);
-
-    // 5️⃣ Assign example ACLs
-    stdacl *inACL = malloc(sizeof(stdacl));
-    stdacl *outACL = malloc(sizeof(stdacl));
-    initExampleACLs(inACL, outACL);
-
-    setACL(&cfg, 0, inACL, outACL);
-
-    // 6️⃣ Print summary
-    interface *iface = dynGetByIndex_interfaces(0, cfg.interfaces);
-    if (iface) {
-        printf("Interface ID: %u\n", iface->id);
-        printf("Zone name: %s\n", iface->zone_name);
-        printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
-               iface->mac[0], iface->mac[1], iface->mac[2],
-               iface->mac[3], iface->mac[4], iface->mac[5]);
-        printf("IP: %u.%u.%u.%u/%u\n",
-               (iface->net.ip >> 24) & 0xFF, (iface->net.ip >> 16) & 0xFF,
-               (iface->net.ip >> 8) & 0xFF, iface->net.ip & 0xFF,
-               iface->net.subnet);
-        printf("Security level: %d\n", iface->level);
-        printf("Shutdown L1: %d, L3: %d\n", iface->shutdown.l1, iface->shutdown.l3);
-    }
-
-    dynFree_interfaces(cfg.interfaces);
-    dynFree_users(cfg.accounts);
-    free(inACL);
-    free(outACL);
-
-    return 0;
+uint32_t make_ip(uint8_t a, uint8_t b, uint8_t c, uint8_t d) { //To understand 
+    return ((uint32_t)a << 24) | ((uint32_t)b << 16) | ((uint32_t)c << 8) | d;
 }
 
 void initExampleACLs(stdacl *inbound, stdacl *outbound) {
     // Permit 192.168.10.0/24 inbound
     inbound[0]->act = permit;
-    inbound[0]->net = malloc(sizeof(network));
+    inbound[0]->net = (network*)malloc(sizeof(network));
     inbound[0]->net->ip = make_ip(192,168,10,0);
     inbound[0]->net->subnet = 24;
 
@@ -99,10 +46,6 @@ int getUserIndex(config *cfg, const unsigned char *username){
     return -1;
 }
 
-uint32_t make_ip(uint8_t a, uint8_t b, uint8_t c, uint8_t d) { //To understand 
-    return ((uint32_t)a << 24) | ((uint32_t)b << 16) | ((uint32_t)c << 8) | d;
-}
-
 uint32_t rotate_left(uint32_t x, uint8_t n) { //To understand
     return (x << n) | (x >> (32 - n));
 }
@@ -125,8 +68,8 @@ bool checkKey(config *cfg){ //True if the hashed input key matches the hashed ro
     unsigned char buffer[16];
     fscanf(stdin,"%15s",buffer);
     unsigned char hashed_key[32];
-    pesudo_hash(buffer,strlen(buffer), hashed_key); 
-    if(!strcmp(hashed_key,cfg->key)){
+    pesudo_hash(buffer,strlen(buffer), cfg->key.hashing_rounds); 
+    if(!strcmp(hashed_key,cfg->key.key_str)){
         printf("Success! \n");
         return true;
     }
@@ -156,8 +99,8 @@ void addUser(config *cfg, const char username[16], bool root){
     return;
 }
 
-void removeUser(config *cfg, const unsigned char username){
-    int index = getUserIndex(cfg,username);
+void removeUser(config *cfg, const unsigned char *username){
+    int index = getUserIndex(cfg, username);
     if(index == -1){
         fprintf(stderr, "Error: User not found. \n");
         return;
@@ -179,12 +122,12 @@ void addInterface(config *cfg, network net, const unsigned char zone[16], uint8_
 
 void removeInterface(config *cfg, uint8_t id){
     dynRemoveByIndex_interfaces(id, cfg->interfaces); //ID represents the index - from 0 to interface array's size.
-    dynRemoveByIndex_users(id,cfg->interfaces);
+    dynRemoveByIndex_users(id,cfg->accounts);
     return;
 }
 
 void setACL(config *cfg, uint8_t id, stdacl *inbound, stdacl *outbound){
-    interface* iface = dynGetByIndex(id, cfg->interfaces);
+    interface* iface = dynGetByIndex_interfaces(id, cfg->interfaces);
     if(iface == NULL){
         fprintf(stderr,"Error: Interface has not found. \n");
         return;
@@ -229,4 +172,62 @@ action processPacket(interface *iface, bool incoming, uint32_t srcIP, uint32_t d
         return permit;
     }
     return drop;
+}
+
+int main() {
+    // 1️⃣ Create config
+    config cfg;
+    dynamic_interfaces interfaces;
+    dynamic_users users;
+
+    cfg.interfaces = &interfaces;
+    cfg.accounts = &users;
+
+    dynInit_interfaces(cfg.interfaces, 4);
+    dynInit_users(cfg.accounts, 8);
+    memset(cfg.key.key_str, 0, sizeof(cfg.key.key_str));
+
+    // 2️⃣ Create a network struct for the interface
+    network dmz_net;
+    dmz_net.ip = make_ip(192,168,10,1); // DMZ interface IP
+    dmz_net.subnet = 24;                // 255.255.255.0
+
+    // 3️⃣ Zone name and MAC address
+    unsigned char zone_name[16] = "DMZ";
+    uint8_t mac[6] = {0x00, 0x1A, 0x2B, 0x3C, 0x4D, 0x5E};
+
+    // 4️⃣ Add interface to config
+    addInterface(&cfg, dmz_net, zone_name, mac, medium);
+
+    // 5️⃣ Assign example ACLs
+    stdacl *inACL = malloc(sizeof(stdacl));
+    stdacl *outACL = malloc(sizeof(stdacl));
+    initExampleACLs(inACL, outACL);
+
+    setACL(&cfg, 0, inACL, outACL);
+
+    // 6️⃣ Print summary
+    interface *iface = dynGetByIndex_interfaces(0, cfg.interfaces);
+    if (iface) {
+        printf("Interface ID: %u\n", iface->id);
+        printf("Zone name: %s\n", iface->zone_name);
+        printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
+               iface->mac[0], iface->mac[1], iface->mac[2],
+               iface->mac[3], iface->mac[4], iface->mac[5]);
+        printf("IP: %u.%u.%u.%u/%u\n",
+               (iface->net.ip >> 24) & 0xFF, (iface->net.ip >> 16) & 0xFF,
+               (iface->net.ip >> 8) & 0xFF, iface->net.ip & 0xFF,
+               iface->net.subnet);
+        printf("Security level: %d\n", iface->level);
+        printf("Shutdown L1: %d, L3: %d\n", iface->shutdown.l1, iface->shutdown.l3);
+    }
+    else{
+        printf("Interface is a null value");
+    }
+    dynFree_interfaces(cfg.interfaces);
+    dynFree_users(cfg.accounts);
+    free(inACL);
+    free(outACL);
+
+    return 0;
 }
