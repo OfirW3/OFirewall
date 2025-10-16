@@ -69,7 +69,7 @@ typedef struct s_network
 }network;
 
 typedef struct s_user{
-    unsigned char username[16];
+    unsigned char *username;
     bool root;
 }user;
 

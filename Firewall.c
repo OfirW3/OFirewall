@@ -35,7 +35,7 @@ void configInit(config *cfg){
     dynInit_users(cfg->accounts, 8);
 }
 
-int getUserIndex(config *cfg, const unsigned char *username){
+int getUserIndex(config *cfg,const unsigned char *username){
     dynamic_users *arr = cfg->accounts;
     for (size_t i = 0; i < arr->size; i++)
     {
@@ -68,7 +68,7 @@ bool checkKey(config *cfg){ //True if the hashed input key matches the hashed ro
     unsigned char buffer[16];
     fscanf(stdin,"%15s",buffer);
     unsigned char hashed_key[32];
-    pesudo_hash(buffer,strlen(buffer), cfg->key.hashing_rounds); 
+    pesudo_hash(buffer, strlen(buffer), cfg->key.hashing_rounds); 
     if(!strcmp(hashed_key,cfg->key.key_str)){
         printf("Success! \n");
         return true;
@@ -87,7 +87,7 @@ bool checkKey(config *cfg){ //True if the hashed input key matches the hashed ro
     return false;
 }
 
-void addUser(config *cfg, const char username[16], bool root){
+void addUser(config *cfg, const unsigned char *username, bool root){
     if(getUserIndex(cfg, username) != -1){
         fprintf(stderr,"Error: Username already exists. \n");
         return;
