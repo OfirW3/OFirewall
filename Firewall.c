@@ -11,24 +11,22 @@ uint32_t make_ip(uint8_t a, uint8_t b, uint8_t c, uint8_t d) { //To understand
 }
 
 void initExampleACLs(stdacl *inbound, stdacl *outbound) {
-    // Permit 192.168.10.0/24 inbound
-    inbound[0]->act = permit;
-    inbound[0]->net = (network*)malloc(sizeof(network));
-    inbound[0]->net->ip = make_ip(192,168,10,0);
-    inbound[0]->net->subnet = 24;
+    (*inbound)[0].act = permit;
+    (*inbound)[0].net = malloc(sizeof(network));
+    (*inbound)[0].net->ip = make_ip(192,168,10,0);
+    (*inbound)[0].net->subnet = 24;
 
-    // Drop everything else inbound
-    inbound[1]->act = drop;
-    inbound[1]->net = malloc(sizeof(network));
-    inbound[1]->net->ip = 0;
-    inbound[1]->net->subnet = 0;
+    (*inbound)[1].act = drop;
+    (*inbound)[1].net = malloc(sizeof(network));
+    (*inbound)[1].net->ip = 0;
+    (*inbound)[1].net->subnet = 0;
 
-    // Permit outbound all
-    outbound[0]->act = permit;
-    outbound[0]->net = malloc(sizeof(network));
-    outbound[0]->net->ip = make_ip(0,0,0,0);
-    outbound[0]->net->subnet = 0;
+    (*outbound)[0].act = permit;
+    (*outbound)[0].net = malloc(sizeof(network));
+    (*outbound)[0].net->ip = make_ip(0,0,0,0);
+    (*outbound)[0].net->subnet = 0;
 }
+
 
 void configInit(config *cfg){
     dynInit_interfaces(cfg->interfaces, 4);
@@ -228,6 +226,5 @@ int main() {
     dynFree_users(cfg.accounts);
     free(inACL);
     free(outACL);
-
     return 0;
 }
