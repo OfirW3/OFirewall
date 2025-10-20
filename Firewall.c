@@ -13,14 +13,14 @@ uint32_t make_ip(uint8_t a, uint8_t b, uint8_t c, uint8_t d) { //To understand
 }
 
 void initExampleACLs(stdacl *inbound, stdacl *outbound) {
-    // Rule 1: Drop 10.0.0.0/8 (Private LANs)
+    // Rule 0: Drop 10.0.0.0/8 (Private LANs)
     (*inbound)[0].act = drop;
     (*inbound)[0].net = malloc(sizeof(network));
     (*inbound)[0].net->ip = make_ip(10,0,0,0);
     (*inbound)[0].net->subnet = 8;
 
         // --- INBOUND ACL ---
-    // Rule 0: Permit 192.168.10.0/24 (DMZ network)
+    // Rule 1: Permit 192.168.10.0/24 (DMZ network)
     (*inbound)[1].act = permit;
     (*inbound)[1].net = malloc(sizeof(network));
     (*inbound)[1].net->ip = make_ip(192,168,10,0);
@@ -48,7 +48,7 @@ void configInit(config *cfg){
     dynInit_users(cfg->accounts, 8);
 }
 
-int getUserIndex(config *cfg,const unsigned char *username){
+int getUserIndex(config *cfg, const char *username){
     dynamic_users *arr = cfg->accounts;
     for (size_t i = 0; i < arr->size; i++)
     {
@@ -63,7 +63,7 @@ uint32_t rotate_left(uint32_t x, uint8_t n) { //To understand
     return (x << n) | (x >> (32 - n));
 }
 
-uint32_t pesudo_hash(const unsigned char *data, size_t len, uint32_t rounds) { //To understand
+uint32_t pesudo_hash(const char *data, size_t len, uint32_t rounds) { //To understand
     uint32_t hash = 0xABCDEF01;
     for (uint32_t r = 0; r < rounds; r++) {
         for (size_t i = 0; i < len; i++) {
@@ -78,9 +78,9 @@ bool checkKey(config *cfg){ //True if the hashed input key matches the hashed ro
     unsigned int tries = 0;
     wrong_key:
     printf("Enter the root key: \n");
-    unsigned char buffer[16];
+    char buffer[16];
     fscanf(stdin,"%15s",buffer);
-    unsigned char hashed_key[32];
+    char hashed_key[32];
     pesudo_hash(buffer, strlen(buffer), cfg->key.hashing_rounds); 
     if(!strcmp(hashed_key,cfg->key.key_str)){
         printf("Success! \n");
@@ -100,7 +100,7 @@ bool checkKey(config *cfg){ //True if the hashed input key matches the hashed ro
     return false;
 }
 
-void addUser(config *cfg, const unsigned char *username, bool root){
+void addUser(config *cfg, const char *username, bool root){
     if(getUserIndex(cfg, username) != -1){
         fprintf(stderr,"Error: Username already exists. \n");
         return;
@@ -112,7 +112,7 @@ void addUser(config *cfg, const unsigned char *username, bool root){
     return;
 }
 
-void removeUser(config *cfg, const unsigned char *username){
+void removeUser(config *cfg, const char *username){
     int index = getUserIndex(cfg, username);
     if(index == -1){
         fprintf(stderr, "Error: User not found. \n");
@@ -120,7 +120,7 @@ void removeUser(config *cfg, const unsigned char *username){
     }
 }
 
-void addInterface(config *cfg, network net, const unsigned char zone[16], uint8_t mac[6], sec_level level){
+void addInterface(config *cfg, network net, const char zone[16], uint8_t mac[6], sec_level level){
     interface iface;
     iface.id = cfg->interfaces->size;
     memcpy(iface.mac, mac, 6);
@@ -206,7 +206,7 @@ int main() {
     dmz_net.ip = make_ip(192,168,10,1); // DMZ gateway IP
     dmz_net.subnet = 24;
 
-    unsigned char zone_name[16] = "DMZ";
+    char zone_name[16] = "DMZ";
     uint8_t mac[6] = {0x00, 0x10, 0x22, 0x33, 0x44, 0x55};
 
     addInterface(&cfg, dmz_net, zone_name, mac, medium);
@@ -228,9 +228,6 @@ int main() {
            iface->net.subnet);
 
     // 5️⃣ Simulate packets
-    uint32_t packet1_src = make_ip(192,168,10,25);
-    uint32_t packet2_src = make_ip(10,0,0,15);
-    uint32_t dst_ip = make_ip(8,8,8,8);
 
     printf("\n--- Packet Tests ---\n");
 
@@ -244,6 +241,7 @@ int main() {
     action result2 = processPacket(iface, true, ip2, make_ip(8,8,8,8));
     printf("Packet 2 (10.0.0.50) → Action: %s\n", result2 == permit ? "PERMIT" : "DROP");
 
-
+    dynFree_interfaces(cfg.interfaces);
+    dynFree_users(cfg.accounts);
     return 0;
 }

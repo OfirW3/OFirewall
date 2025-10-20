@@ -69,19 +69,19 @@ typedef struct s_network
 }network;
 
 typedef struct s_user{
-    unsigned char *username;
+    char *username;
     bool root;
 }user;
 
 typedef struct s_stdce{ // standard control entry structure
     action act; //For "Permit" or "Deny"
-    network *net;
+    network *net; //Contains the network details for inbound packets conatins the src, for outbound contains the dest.
 }stdace;
 
 typedef stdace stdacl[ACL_SIZE]; // access control list with max 100 entries
 
 typedef struct s_rootkey{
-    unsigned char key_str[32];
+    char key_str[32];
     uint16_t hashing_rounds;
 }rootkey;
 
@@ -101,15 +101,15 @@ typedef struct s_interface {
         bool l1 : 1;
         bool l3 : 1;
     } shutdown; //?
-    unsigned char zone_name[16];
+    char zone_name[16];
     sec_level level;
     stdacl *aclin; //Make in the future the ACLs dynamic arrays instead of fixed size arrays.
     stdacl *aclout;
 } interface;
 
 // Dynamic array declarations for interfaces and users. Now the functions declared inside the DYNAMIC_DECLARED are pasted here for each of the arrays.
-DECLARE_DYNAMIC(interface, interfaces);
-DECLARE_DYNAMIC(user, users);
+DECLARE_DYNAMIC(interface, interfaces)
+DECLARE_DYNAMIC(user, users)
 
 
 typedef struct s_config{
