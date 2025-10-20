@@ -4,28 +4,43 @@
 #include <stdint.h>
 #include "Firewall.h"
 #include <math.h>
-
+#include <sys/socket.h>
+#include <linux/if_packet.h>
+#include <netinet/in.h>
 
 uint32_t make_ip(uint8_t a, uint8_t b, uint8_t c, uint8_t d) { //To understand 
     return ((uint32_t)a << 24) | ((uint32_t)b << 16) | ((uint32_t)c << 8) | d;
 }
 
 void initExampleACLs(stdacl *inbound, stdacl *outbound) {
-    (*inbound)[0].act = permit;
+    // Rule 1: Drop 10.0.0.0/8 (Private LANs)
+    (*inbound)[0].act = drop;
     (*inbound)[0].net = malloc(sizeof(network));
-    (*inbound)[0].net->ip = make_ip(192,168,10,0);
-    (*inbound)[0].net->subnet = 24;
+    (*inbound)[0].net->ip = make_ip(10,0,0,0);
+    (*inbound)[0].net->subnet = 8;
 
-    (*inbound)[1].act = drop;
+        // --- INBOUND ACL ---
+    // Rule 0: Permit 192.168.10.0/24 (DMZ network)
+    (*inbound)[1].act = permit;
     (*inbound)[1].net = malloc(sizeof(network));
-    (*inbound)[1].net->ip = 0;
-    (*inbound)[1].net->subnet = 0;
+    (*inbound)[1].net->ip = make_ip(192,168,10,0);
+    (*inbound)[1].net->subnet = 24;
 
+    // --- OUTBOUND ACL ---
+    // Rule 0: Permit to 8.8.8.0/24 (Google DNS range)
     (*outbound)[0].act = permit;
     (*outbound)[0].net = malloc(sizeof(network));
-    (*outbound)[0].net->ip = make_ip(0,0,0,0);
-    (*outbound)[0].net->subnet = 0;
+    (*outbound)[0].net->ip = make_ip(8,8,8,0);
+    (*outbound)[0].net->subnet = 24;
+
+    // Rule 1: Drop 172.16.0.0/12 (Private network)
+    (*outbound)[1].act = drop;
+    (*outbound)[1].net = malloc(sizeof(network));
+    (*outbound)[1].net->ip = make_ip(172,16,0,0);
+    (*outbound)[1].net->subnet = 12;
 }
+
+
 
 
 void configInit(config *cfg){
@@ -138,16 +153,15 @@ void setACL(config *cfg, uint8_t id, stdacl *inbound, stdacl *outbound){
 action matchACL(stdacl *acl, uint32_t ip){ //Return the specified action for the given IP by the acl. If none action was specified, dropping the packet.
     for (uint8_t i = 0; i < ACL_SIZE; i++)
     {
-        stdace *entry = acl[i];
-        uint32_t entry_ip = entry->net->ip;
+        stdace entry = (*acl)[i];
+        uint32_t entry_ip = entry.net->ip;
         if(entry_ip == ip){
-            return entry->act;
+            return entry.act;
         }
-        uint32_t entry_cidr = pow(2, (32 - entry->net->subnet));
+        uint32_t entry_cidr = 0xFFFFFFFF << (32 - entry.net->subnet); //First subnet size bits are 1 and all the other are 0
         uint32_t network_addr = entry_ip & entry_cidr; //Given IP but zero for each network bit.
-        uint32_t broadcast_addr = network_addr | ~entry_cidr; //Network IP but one for each host bit.
-        if(ip >= network_addr && ip <= broadcast_addr){
-            return entry->act;
+        if((ip & entry_cidr) == network_addr){
+            return entry.act;
         }
     }
     fprintf(stderr,"Warning: No specified action was found on the ACL. Dropping the packet.");
@@ -156,7 +170,7 @@ action matchACL(stdacl *acl, uint32_t ip){ //Return the specified action for the
 
 action processPacket(interface *iface, bool incoming, uint32_t srcIP, uint32_t dstIP){ //Figure out from what interface the packet came for and get the right action by the packet's IP
     if(incoming){
-        if(matchACL(iface->aclin,srcIP) == drop){
+        if(matchACL(iface->aclin, srcIP) == drop){
             return drop;
         }
         else{
@@ -173,7 +187,7 @@ action processPacket(interface *iface, bool incoming, uint32_t srcIP, uint32_t d
 }
 
 int main() {
-    // 1️⃣ Create config
+    // 1️⃣ Setup config
     config cfg;
     dynamic_interfaces interfaces;
     dynamic_users users;
@@ -183,48 +197,53 @@ int main() {
 
     dynInit_interfaces(cfg.interfaces, 4);
     dynInit_users(cfg.accounts, 8);
+
     memset(cfg.key.key_str, 0, sizeof(cfg.key.key_str));
+    cfg.key.hashing_rounds = 3;
 
-    // 2️⃣ Create a network struct for the interface
+    // 2️⃣ Create a DMZ interface
     network dmz_net;
-    dmz_net.ip = make_ip(192,168,10,1); // DMZ interface IP
-    dmz_net.subnet = 24;                // 255.255.255.0
+    dmz_net.ip = make_ip(192,168,10,1); // DMZ gateway IP
+    dmz_net.subnet = 24;
 
-    // 3️⃣ Zone name and MAC address
     unsigned char zone_name[16] = "DMZ";
-    uint8_t mac[6] = {0x00, 0x1A, 0x2B, 0x3C, 0x4D, 0x5E};
+    uint8_t mac[6] = {0x00, 0x10, 0x22, 0x33, 0x44, 0x55};
 
-    // 4️⃣ Add interface to config
     addInterface(&cfg, dmz_net, zone_name, mac, medium);
 
-    // 5️⃣ Assign example ACLs
+    // 3️⃣ Initialize ACLs
     stdacl *inACL = malloc(sizeof(stdacl));
     stdacl *outACL = malloc(sizeof(stdacl));
     initExampleACLs(inACL, outACL);
 
     setACL(&cfg, 0, inACL, outACL);
 
-    // 6️⃣ Print summary
+    // 4️⃣ Print interface summary
     interface *iface = dynGetByIndex_interfaces(0, cfg.interfaces);
-    if (iface) {
-        printf("Interface ID: %u\n", iface->id);
-        printf("Zone name: %s\n", iface->zone_name);
-        printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
-               iface->mac[0], iface->mac[1], iface->mac[2],
-               iface->mac[3], iface->mac[4], iface->mac[5]);
-        printf("IP: %u.%u.%u.%u/%u\n",
-               (iface->net.ip >> 24) & 0xFF, (iface->net.ip >> 16) & 0xFF,
-               (iface->net.ip >> 8) & 0xFF, iface->net.ip & 0xFF,
-               iface->net.subnet);
-        printf("Security level: %d\n", iface->level);
-        printf("Shutdown L1: %d, L3: %d\n", iface->shutdown.l1, iface->shutdown.l3);
-    }
-    else{
-        printf("Interface is a null value");
-    }
-    dynFree_interfaces(cfg.interfaces);
-    dynFree_users(cfg.accounts);
-    free(inACL);
-    free(outACL);
+    printf("\n=== Interface Info ===\n");
+    printf("ID: %d | Zone: %s | Level: %d\n", iface->id, iface->zone_name, iface->level);
+    printf("IP: %u.%u.%u.%u/%d\n",
+           (iface->net.ip >> 24) & 0xFF, (iface->net.ip >> 16) & 0xFF,
+           (iface->net.ip >> 8) & 0xFF, iface->net.ip & 0xFF,
+           iface->net.subnet);
+
+    // 5️⃣ Simulate packets
+    uint32_t packet1_src = make_ip(192,168,10,25);
+    uint32_t packet2_src = make_ip(10,0,0,15);
+    uint32_t dst_ip = make_ip(8,8,8,8);
+
+    printf("\n--- Packet Tests ---\n");
+
+    // Packet 1: from 192.168.10.25 (should be PERMIT)
+    uint32_t ip1 = make_ip(192,168,10,25);
+    action result1 = processPacket(iface, true, ip1, make_ip(8,8,8,8));
+    printf("Packet 1 (192.168.10.25) → Action: %s\n", result1 == permit ? "PERMIT" : "DROP");
+
+    // Packet 2: from 10.0.0.50 (should be DROP by rule, not default)
+    uint32_t ip2 = make_ip(10,0,0,50);
+    action result2 = processPacket(iface, true, ip2, make_ip(8,8,8,8));
+    printf("Packet 2 (10.0.0.50) → Action: %s\n", result2 == permit ? "PERMIT" : "DROP");
+
+
     return 0;
 }

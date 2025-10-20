@@ -81,7 +81,7 @@ typedef struct s_stdce{ // standard control entry structure
 typedef stdace stdacl[ACL_SIZE]; // access control list with max 100 entries
 
 typedef struct s_rootkey{
-    unsigned char key_str[16];
+    unsigned char key_str[32];
     uint16_t hashing_rounds;
 }rootkey;
 
@@ -92,6 +92,7 @@ typedef enum
 }
 sec_level;
 
+
 typedef struct s_interface {
     uint8_t id; 
     uint8_t mac[6];
@@ -99,10 +100,10 @@ typedef struct s_interface {
     struct {
         bool l1 : 1;
         bool l3 : 1;
-    } shutdown;
+    } shutdown; //?
     unsigned char zone_name[16];
     sec_level level;
-    stdacl *aclin;
+    stdacl *aclin; //Make in the future the ACLs dynamic arrays instead of fixed size arrays.
     stdacl *aclout;
 } interface;
 
@@ -116,6 +117,3 @@ typedef struct s_config{
     dynamic_users *accounts; 
     rootkey key;
 }config;
-
-
-
