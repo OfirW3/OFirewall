@@ -1,8 +1,9 @@
-#pragma once
-#include "network.h"
-#include "firewall.h"
 #include <stdint.h>
-#define ACL_SIZE 99
+#include "dynamic.h"
+
+typedef struct s_dynamic_stdacl dynamic_stdacl;
+typedef struct s_network network;
+
 
 enum e_action{
     permit = 1,

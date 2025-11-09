@@ -1,4 +1,4 @@
-#pragma once
+#include <stdint.h>
 
 // To convert IP, PIN, KEY, MAC to MSB by htonl function when writing and convert back to LSB while readin with ntonl
 typedef struct s_network

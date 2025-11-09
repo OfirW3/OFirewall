@@ -1,18 +1,8 @@
-#pragma once
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
 #include <stdint.h>
-#define BLOCK_SIZE 10 //Used in Firewall.c program
-#include "dynamic.h"                                                                                    
-#include "iface.h"
-#include "user.h"
 
+typedef struct s_config config;
+typedef struct s_interface interface;
+typedef enum e_action action;
 
-
-
-typedef struct s_config{
-    dynamic_interfaces *interfaces;
-    dynamic_users *accounts; 
-    rootkey key;
-}config;
+void configInit(config *cfg);
+action processPacket(interface *iface, bool incoming, uint32_t srIP, uint32_t dstIP);

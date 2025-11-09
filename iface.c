@@ -1,6 +1,7 @@
 #pragma once
+#include <stdint.h>
 #include "iface.h"
-#include "firewall.h"
+#include "config.h"
 
 void addInterface(config *cfg, interface iface){
     dynInsertValue_interfaces(iface, cfg->interfaces);

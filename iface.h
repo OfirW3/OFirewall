@@ -1,5 +1,14 @@
 #pragma once
+#include "dynamic.h"
 #include "acl.h"
+#include <stdbool.h>
+#include <stdint.h>
+
+typedef struct s_network network;
+typedef struct s_dynamic_stdacl dynamic_stdacl;
+typedef struct s_config config;
+
+
 
 typedef enum 
 {   low = 1, 
@@ -9,10 +18,11 @@ typedef enum
 sec_level;
 
 
+
 typedef struct s_interface {
     uint8_t id; 
     uint8_t mac[6];
-    network net;
+    network *net;
     struct {
         bool l1 : 1;
         bool l3 : 1;
@@ -23,6 +33,7 @@ typedef struct s_interface {
     dynamic_stdacl *aclout;
 } interface;
 
+DECLARE_DYNAMIC(interface, interfaces)
+
 void addInterface(config *cfg, interface iface);
 void removeInterface(config *cfg, uint8_t id);
-DECLARE_DYNAMIC(interface, interfaces)

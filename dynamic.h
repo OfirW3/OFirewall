@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 #define DECLARE_DYNAMIC(type, name) \
-typedef struct { \
+typedef struct s_dynamic_##name{ \
     type *data; \
     uint32_t size; \
     uint32_t capacity; \
@@ -49,4 +49,4 @@ static void dynFree_##name(dynamic_##name *arr) { \
     arr->data = NULL; \
     arr->size = 0; \
     arr->capacity = 0; \
-}
+} 

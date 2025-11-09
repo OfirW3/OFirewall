@@ -3,12 +3,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include "firewall.h"
-#include "acl.h"
+#include <stdbool.h>
 #include <math.h>
 #include <sys/socket.h>
 #include <linux/if_packet.h>
 #include <netinet/in.h>
+#include "user.h"
+#include "config.h"
+#include "acl.h"
+#include "iface.h"
 
 
 void configInit(config *cfg){
