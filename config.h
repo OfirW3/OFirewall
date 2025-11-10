@@ -11,3 +11,12 @@ typedef struct s_config{
     dynamic_users *accounts; 
     rootkey key;
 }config; 
+
+void addInterface(config *cfg, interface iface);
+void removeInterface(config *cfg, uint8_t id);
+int getUserIndex(config *cfg, const char *username);
+uint32_t rotate_left(uint32_t x, uint8_t n);
+uint32_t pesudo_hash(const char *data, size_t len, uint32_t rounds);
+bool checkKey(config *cfg);
+void addUser(config *cfg, const char *username, bool root);
+void removeUser(config *cfg, const char *username);

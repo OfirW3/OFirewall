@@ -1,4 +1,3 @@
-#pragma once
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,10 +7,7 @@
 #include <sys/socket.h>
 #include <linux/if_packet.h>
 #include <netinet/in.h>
-#include "user.h"
-#include "config.h"
-#include "acl.h"
-#include "iface.h"
+#include "firewall.h"
 
 
 void configInit(config *cfg){
@@ -22,7 +18,7 @@ void configInit(config *cfg){
 
 action processPacket(interface *iface, bool incoming, uint32_t srcIP, uint32_t dstIP){ //Figure out from what interface the packet came for and get the right action by the packet's IP
     if(incoming){
-        if(matchACL(iface->aclin, srcIP) == drop){
+        if(check_rule(iface->aclin, iface->net, srcIP) == drop){
             return drop;
         }
         else{
@@ -30,7 +26,7 @@ action processPacket(interface *iface, bool incoming, uint32_t srcIP, uint32_t d
         }
     }
     else{
-        if(matchACL(iface->aclout, dstIP) == drop){
+        if(check_rule(iface->aclout, iface->net, dstIP) == drop){
             return drop;
         }
         return permit;

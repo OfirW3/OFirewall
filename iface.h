@@ -1,5 +1,4 @@
 #pragma once
-#include "dynamic.h"
 #include "acl.h"
 #include <stdbool.h>
 #include <stdint.h>
@@ -35,5 +34,4 @@ typedef struct s_interface {
 
 DECLARE_DYNAMIC(interface, interfaces)
 
-void addInterface(config *cfg, interface iface);
-void removeInterface(config *cfg, uint8_t id);
+

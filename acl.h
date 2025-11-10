@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "dynamic.h"
+#include "network.h"
 
 typedef struct s_dynamic_stdacl dynamic_stdacl;
 typedef struct s_network network;
@@ -20,4 +21,4 @@ typedef struct s_stdce{ // standard control entry structure
 DECLARE_DYNAMIC(stdace,stdacl) //Dynamic array dynamic_stdacl
 
 void add_rule(dynamic_stdacl *acl, network *net, action act);
-action matchACL(dynamic_stdacl *acl, uint32_t ip);
+action check_rule(dynamic_stdacl *acl, network *net, uint32_t ip);

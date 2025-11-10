@@ -1,4 +1,3 @@
-#pragma once
 #include "acl.h"
 #include <stdint.h>
 
@@ -10,10 +9,10 @@ void add_rule(dynamic_stdacl *acl, network *net, action act){
     return;
 }
 
-action check_rule(dynamic_stdacl acl, network *net, uint32_t ip){
-    for (uint8_t i = 0; i < acl.size; i++)
+action check_rule(dynamic_stdacl *acl, network *net, uint32_t ip){ //acl and net belongs to the config and ip is the ip sample we want to take action on
+    for (uint8_t i = 0; i < acl->size; i++)
     {
-        stdace entry = acl.data[i];
+        stdace entry = acl->data[i];
         uint32_t entry_ip = entry.net->ip;
         if(entry_ip == ip){
             return entry.act;
