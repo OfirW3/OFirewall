@@ -3,10 +3,6 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <math.h>
-#include <sys/socket.h>
-#include <linux/if_packet.h>
-#include <netinet/in.h>
 #include "firewall.h"
 
 
