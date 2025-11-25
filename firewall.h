@@ -2,4 +2,4 @@
 #include "config.h"
 
 void configInit(config *cfg);
-action processPacket(interface *iface, bool incoming, uint32_t srIP, uint32_t dstIP);
+action processPacket(interface *iface, struct iphdr *ip, bool incoming);

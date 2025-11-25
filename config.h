@@ -7,10 +7,13 @@ typedef struct s_dynamic_users dynamic_users;
 typedef struct s_rootkey rootkey;
 
 typedef struct s_config{
-    dynamic_interfaces *interfaces;
+    interface_map *iface_map; //Key = ifaceID, value = interface with the ifaceID
+    dynamic_interfaces *interfaces; //(Might be removed later) The ifaces ID is given by the order in the array
     dynamic_users *accounts; 
     rootkey key;
 }config; 
+
+static config *g_config; //Global config
 
 void addInterface(config *cfg, interface iface);
 void removeInterface(config *cfg, uint8_t id);

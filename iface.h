@@ -25,12 +25,18 @@ typedef struct s_interface {
     struct {
         bool l1 : 1;
         bool l3 : 1;
-    } shutdown; //?
+    } shutdown; //Do I need this?
     char zone_name[16];
     sec_level level;
-    dynamic_stdacl *aclin; //Make in the future the ACLs dynamic arrays instead of fixed size arrays.
+    dynamic_stdacl *aclin; 
     dynamic_stdacl *aclout;
 } interface;
+
+#define max_ifaces 128 //It's very unlikely for a device to have more than 128 network interfaces
+
+typedef struct s_interface_map{
+    interface *iface[max_ifaces];
+}interface_map;
 
 DECLARE_DYNAMIC(interface, interfaces)
 

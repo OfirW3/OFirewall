@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "firewall.h"
-
+#include <netinet/ip.h>
 
 void configInit(config *cfg){
     dynInit_interfaces(cfg->interfaces, 4);
@@ -12,7 +12,9 @@ void configInit(config *cfg){
 }
 
 
-action processPacket(interface *iface, bool incoming, uint32_t srcIP, uint32_t dstIP){ //Figure out from what interface the packet came for and get the right action by the packet's IP
+action processPacket(interface *iface, struct iphdr *ip, bool incoming){
+    uint32_t srcIP = ntohl(ip->saddr);
+    uint32_t dstIP = ntohl(ip->daddr);
     if(incoming){
         if(check_rule(iface->aclin, iface->net, srcIP) == drop){
             return drop;
