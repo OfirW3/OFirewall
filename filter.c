@@ -1,4 +1,5 @@
 #include "filter.h"
+#include <string.h>
 #include <libnetfilter_queue/libnetfilter_queue.h>
 #include <linux/netfilter.h>
 #include <arpa/inet.h>
@@ -6,13 +7,6 @@
 #include <linux/if_packet.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
-
-void handle_prerouting(uint8_t iface_id, struct iphdr *src_ip){
-    //Logic for inbound packet processing
-}
-void handle_output(uint8_t iface_id, struct iphdr *dst_ip){
-    //Logic for outbound packet processing
-}
 
 
 static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct nfq_data *nfa, void *data){
@@ -47,6 +41,93 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct nfq_data *
 }
 
 int main(){
+    /*
+    DROP ANY PACKET EXCEPT FOR LOOPBACK INBOUND AND OUTBOUND PACKETS
+    */
+
+    /* ============================
+       1) Allocate global config
+       ============================ */
+    g_config = malloc(sizeof(config));
+    if (!g_config) {
+        fprintf(stderr, "Error allocating config\n");
+        return 1;
+    }
+
+    /* ============================
+       2) Allocate maps + arrays
+       ============================ */
+    g_config->iface_map  = calloc(1, sizeof(interface_map));   // All entries NULL
+    g_config->interfaces = malloc(sizeof(dynamic_interfaces));
+    g_config->accounts   = malloc(sizeof(dynamic_users));
+
+    if (!g_config->interfaces || !g_config->accounts || !g_config->iface_map) {
+        fprintf(stderr, "Error allocating internal config arrays\n");
+        return 1;
+    }
+
+    dynInit_interfaces(g_config->interfaces, 4);  // dynamic array of interfaces
+    dynInit_users(g_config->accounts, 8);         // dynamic array of users
+
+    /* ============================
+       3) Create one interface: eth0, ifindex=2
+       ============================ */
+    interface eth0;
+    memset(&eth0, 0, sizeof(interface));
+
+    eth0.id = 2;  // ← this MUST match ifindex
+    strncpy(eth0.zone_name, "eth0", sizeof(eth0.zone_name)-1);
+
+    /* Example MAC: */
+    eth0.mac[0] = 0x00;
+    eth0.mac[1] = 0x15;
+    eth0.mac[2] = 0x5D;
+    eth0.mac[3] = 0x01;
+    eth0.mac[4] = 0x02;
+    eth0.mac[5] = 0x03;
+
+    /* Example IP network: 192.168.1.10/24 */
+    eth0.net = malloc(sizeof(network));
+    eth0.net->ip     = make_ip(192,168,1,10);
+    eth0.net->subnet = 24;
+
+    /* ============================
+       4) Allocate ACLs
+       ============================ */
+    eth0.aclin  = malloc(sizeof(dynamic_stdacl));
+    eth0.aclout = malloc(sizeof(dynamic_stdacl));
+
+    dynInit_stdacl(eth0.aclin,  4);
+    dynInit_stdacl(eth0.aclout, 4);
+
+    /* ============================
+       5) Add example ACL entries
+       ============================ */
+    network *allow_loopback = malloc(sizeof(network));
+    allow_loopback->ip = make_ip(127,0,0,1);
+    allow_loopback->subnet = 32;
+
+    add_rule(eth0.aclin, allow_loopback, permit);   // inbound
+    add_rule(eth0.aclout, allow_loopback, permit);  // outbound
+
+    /* ============================
+       6) Register in dynamic array (optional)
+       ============================ */
+    addInterface(g_config, eth0);
+
+    /* ============================
+       7) Register in interface_map
+       ============================ */
+    g_config->iface_map->iface[2] = &g_config->interfaces->data[0];
+    // important: use pointer from the dynamic array, not local variable
+
+    printf("Firewall initialized with eth0 (ifindex = 2)\n");
+
+    /* ============================
+       8) Continue with NFQUEUE setup...
+       ============================ */
+    
+
     struct nfq_handle *h;
     struct nfq_q_handle *q0;
     struct nfq_q_handle *q1;

@@ -83,4 +83,3 @@ void removeUser(config *cfg, const char *username){
         return;
     }
 }
-

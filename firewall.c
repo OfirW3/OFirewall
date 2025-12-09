@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "firewall.h"
-#include <netinet/ip.h>
 
 void configInit(config *cfg){
     dynInit_interfaces(cfg->interfaces, 4);
@@ -32,6 +31,3 @@ action processPacket(interface *iface, struct iphdr *ip, bool incoming){
     return drop;
 }
 
-int main() {
-    return 0;
-}
