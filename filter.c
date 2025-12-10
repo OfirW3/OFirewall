@@ -11,7 +11,6 @@
 
 static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct nfq_data *nfa, void *data){
     int queue_id = *(int*)data;  // Which hook this queue represents
-
     unsigned char *payload;
     struct nfqnl_msg_packet_hdr *ph;
     uint8_t id;
@@ -133,11 +132,32 @@ int main(){
     struct nfq_q_handle *q1;
 
     h = nfq_open();
-    nfq_unbind_pf(h, AF_INET);
-    nfq_bind_pf(h, AF_INET);
+    if(!h){
+        fprintf(stderr, "Error: failed to open nfq");
+        return 1;
+    }
+    /*
+    ERROR: UNBIND IS FAILING
+    */
+    if(nfq_unbind_pf(h, AF_INET) < 0){
+        fprintf(stderr, "Error: failed to unbind nfq");
+        return 1;
+    }
+    if(nfq_bind_pf(h, AF_INET) < 0){
+        fprintf(stderr, "Error: failed to bind nfq");
+        return 1;
+    }
 
-    q0 = nfq_create_queue(h, 0, &cb, NULL);
-    q1 = nfq_create_queue(h, 1, &cb, NULL);
+    q0 = nfq_create_queue(h, 0, &cb, (void*)0);
+    if(!q0){
+        fprintf(stderr, "Error: creation of nfq - q0 has failed");
+        return 1;
+    }
+    q1 = nfq_create_queue(h, 1, &cb, (void*)1);
+    if(!q1){
+        fprintf(stderr, "Error: creation of nfq - q1 has failed");
+        return 1;
+    }
 
     nfq_set_queue_maxlen(q0, 4096);
     nfq_set_queue_maxlen(q1, 4096);
