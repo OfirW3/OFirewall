@@ -10,7 +10,7 @@
 
 
 static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct nfq_data *nfa, void *data){
-    int queue_id = *(int*)data;  // Which hook this queue represents
+    int queue_id = *(int*)data;  //0 for inbound, 1 for outbound
     unsigned char *payload;
     struct nfqnl_msg_packet_hdr *ph;
     uint8_t id;
@@ -136,39 +136,53 @@ int main(){
         fprintf(stderr, "Error: failed to open nfq");
         return 1;
     }
-    /*
-    ERROR: UNBIND IS FAILING
-    */
-    if(nfq_unbind_pf(h, AF_INET) < 0){
-        fprintf(stderr, "Error: failed to unbind nfq");
-        return 1;
-    }
+    printf("Opened queue\n");
     if(nfq_bind_pf(h, AF_INET) < 0){
-        fprintf(stderr, "Error: failed to bind nfq");
+        fprintf(stderr, "Error: failed to bind nfq to the program.\nAre you root?");
         return 1;
     }
-
+    printf("Bined queue\n");
+    //Inbound netfilter queue
     q0 = nfq_create_queue(h, 0, &cb, (void*)0);
     if(!q0){
-        fprintf(stderr, "Error: creation of nfq - q0 has failed");
+        fprintf(stderr, "Error: creation of nfq - q0 has failed\n");
         return 1;
     }
+    printf("Queue 0 created\n");
+    //Outbound netfilter queue
     q1 = nfq_create_queue(h, 1, &cb, (void*)1);
     if(!q1){
-        fprintf(stderr, "Error: creation of nfq - q1 has failed");
+        fprintf(stderr, "Error: creation of nfq - q1 has failed\n");
         return 1;
     }
-
-    nfq_set_queue_maxlen(q0, 4096);
-    nfq_set_queue_maxlen(q1, 4096);
-
-    nfq_set_mode(q0, NFQNL_COPY_PACKET, 0xffff);
-    nfq_set_mode(q1, NFQNL_COPY_PACKET, 0xffff);
-
+    printf("Queue 1 created\n");
+    if(nfq_set_queue_maxlen(q0, 4096) < 0)
+    {
+        fprintf(stderr,"Error: setting queue 0 max length has failed.\n");
+        return 1;
+    }
+    printf("Set max len of q0\n");
+    if(nfq_set_queue_maxlen(q1, 4096) < 0){
+        fprintf(stderr,"Error: setting queue 1 max length has failed.\n");
+        return 1;
+    
+    }
+    printf("Set max len of q1\n");
+    if(nfq_set_mode(q0, NFQNL_COPY_PACKET, 0xffff) < 0){
+        fprintf(stderr,"Error: setting queue 0 mode has failed.\n");
+        return 1;
+    }
+    printf("Set mode of q0\n");
+    if(nfq_set_mode(q1, NFQNL_COPY_PACKET, 0xffff) < 0){
+        fprintf(stderr,"Error: setting queue 1 mode has failed.\n");
+        return 1;
+    }
+    printf("Set mode of q1\n");
     int fd = nfq_fd(h);
     char buffer[4096];
-
+    printf("Got the handler's descriptor\n");
     while(true){
+        printf("Entered the loop");
         int rv = recv(fd, buffer, sizeof(buffer), 0);
         if(rv > 0){
             nfq_handle_packet(h, buffer, rv); //Callback called with the packet
