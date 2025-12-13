@@ -1,4 +1,7 @@
+#pragma once
 #include <stdint.h>
+#include <netinet/ip.h>
+#include <stdbool.h>
 #include "dynamic.h"
 #include "network.h"
 
@@ -21,4 +24,4 @@ typedef struct s_stdce{ // standard control entry structure
 DECLARE_DYNAMIC(stdace,stdacl) //Dynamic array dynamic_stdacl
 
 void add_rule(dynamic_stdacl *acl, network *net, action act);
-action check_rule(dynamic_stdacl *acl, network *net, uint32_t ip);
+action check_rule(dynamic_stdacl *acl, struct iphdr *ip_header, bool incoming);

@@ -1,4 +1,3 @@
 .vscode/
-valgrind-out.txt
-firewall
-Firewall.exe
+*.exe
+filter

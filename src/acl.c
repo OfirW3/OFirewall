@@ -9,7 +9,17 @@ void add_rule(dynamic_stdacl *acl, network *net, action act){
     return;
 }
 
-action check_rule(dynamic_stdacl *acl, network *net, uint32_t ip){ //acl and net belongs to the config and ip is the ip sample we want to take action on
+action check_rule(dynamic_stdacl *acl, struct iphdr *ip_header, bool incoming){ //acl and net belongs to the config and ip is the ip sample we want to take action on
+    uint32_t ip;
+    if(incoming){
+        ip = ntohl(ip_header->saddr);
+    }
+    else{
+        ip = ntohl(ip_header->daddr);
+    }
+    if(!ip){
+        fprintf(stderr, "Error: invalid IP in the iphder struct.\n");
+    }
     for (uint8_t i = 0; i < acl->size; i++)
     {
         stdace entry = acl->data[i];
@@ -23,6 +33,6 @@ action check_rule(dynamic_stdacl *acl, network *net, uint32_t ip){ //acl and net
             return entry.act;
         }
     }
-    fprintf(stderr,"Warning: No specified action was found on the ACL. Dropping the packet.");
+    fprintf(stderr,"Warning: No specified action was found on the ACL. Dropping the packet.\n");
     return drop;
 }

@@ -83,3 +83,33 @@ void removeUser(config *cfg, const char *username){
         return;
     }
 }
+
+void configInit(config *cfg){
+    dynInit_interfaces(cfg->interfaces, 4);
+    dynInit_users(cfg->accounts, 8);
+}
+
+
+action processPacket(interface *iface, struct iphdr *ip, bool incoming){
+    if(!ip->saddr || !ip->daddr){
+        fprintf(stderr,"ProcessPacket: ip struct contains invalid addresses");
+    }
+    if(incoming){
+        if(check_rule(iface->aclin, ip, true) == permit){
+            return permit;
+        }
+        else{
+            return drop;
+        }
+    }
+    else{
+        if(check_rule(iface->aclout, ip, false) == permit){
+            return permit;
+        }
+        else{
+            return drop;
+        }
+    }
+    return drop;
+}
+

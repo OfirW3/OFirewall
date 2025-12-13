@@ -9,12 +9,11 @@ typedef struct s_config config;
 
 
 
-typedef enum 
+typedef enum e_sec_level 
 {   low = 1, 
     medium = 5, 
     high = 15
-}
-sec_level;
+}sec_level;
 
 
 

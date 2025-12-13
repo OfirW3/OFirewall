@@ -23,3 +23,5 @@ uint32_t pesudo_hash(const char *data, size_t len, uint32_t rounds);
 bool checkKey(config *cfg);
 void addUser(config *cfg, const char *username, bool root);
 void removeUser(config *cfg, const char *username);
+void configInit(config *cfg);
+action processPacket(interface *iface, struct iphdr *ip, bool incoming);
