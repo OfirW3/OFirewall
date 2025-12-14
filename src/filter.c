@@ -82,21 +82,17 @@ void cleanup_nfqueue(struct nfq_q_handle *q0, struct nfq_q_handle *q1, struct nf
 
 int main() {
     /*
-    DROP ANY PACKET EXCEPT FOR SPECIFIC INBOUND AND OUTBOUND PACKETS
+    drop any packets except for the allowed traffic (client -> server and server -> client)
     */
 
-    /* ============================
-       1) Allocate global config
-       ============================ */
+    //Allocate global config
     g_config = malloc(sizeof(config));
     if (!g_config) {
         fprintf(stderr, "Error allocating config\n");
         return 1;
     }
 
-    /* ============================
-       2) Allocate maps + arrays
-       ============================ */
+    //Allocate map and dynamic array for the interfaces
     g_config->iface_map = calloc(1, sizeof(interface_map)); // All entries NULL
     g_config->interfaces = malloc(sizeof(dynamic_interfaces));
 
@@ -107,9 +103,7 @@ int main() {
 
     dynInit_interfaces(g_config->interfaces, 4); // dynamic array of interfaces
 
-    /* ============================
-       3) Create one interface: veth-host
-       ============================ */
+    //Create veth-host interface
     interface veth1;
     memset(&veth1, 0, sizeof(interface));
     const char *ifname = "veth-host";
@@ -122,7 +116,7 @@ int main() {
     printf("Detected %s's ifindex: %d\n", ifname, veth1.id);
     strncpy(veth1.zone_name, ifname, sizeof(veth1.zone_name) - 1);
 
-    /* Example MAC: */
+    //Some MAC address
     veth1.mac[0] = 0x00; veth1.mac[1] = 0x15; veth1.mac[2] = 0x5D;
     veth1.mac[3] = 0x01; veth1.mac[4] = 0x02; veth1.mac[5] = 0x03;
 
@@ -131,18 +125,14 @@ int main() {
     veth1.net->ip = make_ip(10, 200, 1, 2); // Client's address
     veth1.net->subnet = 24;
 
-    /* ============================
-       4) Allocate ACLs
-       ============================ */
+   //Allocate dynamic ACLs
     veth1.aclin = malloc(sizeof(dynamic_stdacl));
     veth1.aclout = malloc(sizeof(dynamic_stdacl));
 
     dynInit_stdacl(veth1.aclin, 4);
     dynInit_stdacl(veth1.aclout, 4);
 
-    /* ============================
-       5) Add example ACL entries
-       ============================ */
+    //Add the ACL rules for allowed traffic between the server and client
     network *server_addr = malloc(sizeof(network));
     server_addr->ip = make_ip(10, 200, 1, 1);
     server_addr->subnet = 24;
@@ -155,22 +145,16 @@ int main() {
     add_rule(veth1.aclin, server_addr, permit);
     add_rule(veth1.aclout, client_addr, permit);
 
-    /* ============================
-       6) Register in dynamic array
-       ============================ */
+    //Add veth1 into config
     addInterface(g_config, veth1);
 
-    /* ============================
-       7) Register in interface_map
-       ============================ */
+    //Add veth1 into map
     // Ensure we point to the data inside the dynamic array, not the local stack variable
     g_config->iface_map->iface[veth1.id] = &g_config->interfaces->data[0];
 
     printf("Firewall initialized with veth1 (ifindex = %d)\n", veth1.id);
 
-    /* ============================
-       8) Netfilter Queue Setup
-       ============================ */
+    //NFQUEUE setup
     struct nfq_handle *h;
     struct nfq_q_handle *q0;
     struct nfq_q_handle *q1;

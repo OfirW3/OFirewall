@@ -1,17 +1,34 @@
 OFirewall - Ofir Firewall
 
-A simple cool firewall for filtering packets based on their IP addresses as determied in the ACLs
+A simple cool toy userspace firewall for filtering IPv4 packets by using Linux Netfilter -> NFQUEUE for sending the packets from the kernel to the userspace, applying simple ACL rules (IP address based filtering) and returnes a verdict to the kernel - Accept or Drop.
 
-The firewall uses the Linux Netfilter Framework for putting PREROUTING and OUTPUT hooks and triggering a callback for each packet that hits the hooks for a filtering based on the ACLs rules.
-For all packets that hit the network interface's hooks are sent to the userspace NFQUEUE (Netfilter queue) and are procecced by the firewall that runs on the userspace one by one and the firewall sends a verdict for the kernel to accept or drop the packet by using the netlink sockets for kernel - userspace communication.
-A testing for the project was made by creating 2 network namespaces, client and server, for simulating the firewall in process from the client prespective.
-All packets from that are sent to the client and server namespaces are going through the iptables and then to the NFQUEUE.
-To run the project with the running example you better be root in order to avoid many password prompting from sudo.
-Then you need to create those namespaces and set the iptables rules by:
-make set_veth
-Then build the filter binary by:
+How it works in short:
+
+iptables inserts an NFQUEUE target for all packets hitting the PREROUTING hook and are arriving to veth-host.
+Packets that match the rule are queued in the NFQUEUE on the kernel and delivered to the userspace via a netlink socket.
+The userspace filter binary inspects the packets, maps the packet to the registered interface by checking the ifindex, checking the ACLs that are defined on the main program inside filter.c, returning a verdict to the kernel of Accept or Drop the packet.
+For testing, the program creates a client and server namespaces and veth inside each, links the client_veth and server_veth so the traffic hits the PREROUTING inside the kernel networking stack and enqueued in the NFQUEUE, and then the program returnes verdicts for the packets that arrive at server_veth.
+
+Some requirements:
+The project uses libnetfilter-queue-dev library so make sure it's installed.
+You will need sudo for making the iptables rules, the namespaces and the veths.
+
+Running the program with testing (by making a veth pair):
+
+Build and run the program:
+sudo make set_veth
+
 make build
-Then run the filter from the first terminal by:
-make run
-Then you can test the filtering from another terminal by:
-make test_ping
+
+sudo make run
+
+Test the program by pinging from another terminal:
+sudo make test_ping
+#This will ping the allowed address
+You can also try pinging other addresses and the packets should be drop and you will get no replies.
+
+Cleanup:
+sudo make clean_all 
+#This will clean the veths, namespaces and the binary
+
+You can play around with the main function in filter.c inside src folder
