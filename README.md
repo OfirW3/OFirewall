@@ -1,34 +1,56 @@
-OFirewall - Ofir Firewall
+# **OFirewall – Ofir Firewall**
 
-A simple cool toy userspace firewall for filtering IPv4 packets by using Linux Netfilter -> NFQUEUE for sending the packets from the kernel to the userspace, applying simple ACL rules (IP address based filtering) and returnes a verdict to the kernel - Accept or Drop.
+A simple toy userspace firewall for filtering IPv4 packets using Linux Netfilter hooks and the NFQUEUE.
+Packets are sent from the kernel to userspace, filtered using simple ACL rules (IP-based), and a verdict is returned to the kernel: ACCEPT or DROP.
 
-How it works in short:
+---
 
-iptables inserts an NFQUEUE target for all packets hitting the PREROUTING hook and are arriving to veth-host.
-Packets that match the rule are queued in the NFQUEUE on the kernel and delivered to the userspace via a netlink socket.
-The userspace filter binary inspects the packets, maps the packet to the registered interface by checking the ifindex, checking the ACLs that are defined on the main program inside filter.c, returning a verdict to the kernel of Accept or Drop the packet.
-For testing, the program creates a client and server namespaces and veth inside each, links the client_veth and server_veth so the traffic hits the PREROUTING inside the kernel networking stack and enqueued in the NFQUEUE, and then the program returnes verdicts for the packets that arrive at server_veth.
+## **How It Works (Short Overview)**
 
-Some requirements:
-The project uses libnetfilter-queue-dev library so make sure it's installed.
-You will need sudo for making the iptables rules, the namespaces and the veths.
+- iptables inserts an NFQUEUE target for all packets hitting the PREROUTING hook that arrive on veth-host.
+- Packets that match this rule are queued in the kernel’s NFQUEUE and delivered to userspace via a netlink socket.
+- The userspace filter binary inspects each packet, maps it to the registered interface by checking the ifindex, and evaluates the ACL rules defined in the main program inside filter.c.
+- Based on the ACL decision, the program returns a verdict to the kernel: ACCEPT or DROP.
+- For testing, the project creates client and server network namespaces connected via veth interfaces.
+- Traffic between the namespaces hits the PREROUTING hook in the kernel networking stack, is enqueued into the NFQUEUE, and then processed by the firewall in the userspace.
+- The firewall returns verdicts for packets that arrive on server_veth.
 
-Running the program with testing (by making a veth pair):
+---
 
-Build and run the program:
+## **Some Requirements**
+
+- The project uses the libnetfilter-queue-dev library — make sure it is installed.
+- sudo privileges are required to:
+- Create network namespaces
+- Create veth interfaces
+- Insert iptables rules
+
+---
+
+## **Running the Program (With Test Setup)**
+
+### **Build and Run**
+
 sudo make set_veth
-
 make build
-
 sudo make run
 
-Test the program by pinging from another terminal:
+Leave the terminal running the program open; the program listens for queued packets and returns verdicts.
+
+## Testing the Firewall
+
+From another terminal, run the simple ping test.
+
 sudo make test_ping
-#This will ping the allowed address
-You can also try pinging other addresses and the packets should be drop and you will get no replies.
 
-Cleanup:
-sudo make clean_all 
-#This will clean the veths, namespaces and the binary
+This command pings the allowed address. Pinging other addresses should result in packets being dropped with no replies.
 
-You can play around with the main function in filter.c inside src folder
+## Cleanup
+
+sudo make clean_all
+
+This removes veth interfaces, network namespaces, and the compiled binary.
+
+## Last thing
+
+Feel free to experiment with the firewall logic by editing the main function inside src/filter.c. The example ACLs used by the program are defined at startup in that file. Ensure veth-host exists before running the binary, and use the provided test netns and veth setup to avoid local-traffic cases that do not traverse PREROUTING.
