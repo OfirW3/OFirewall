@@ -6,11 +6,11 @@ LIBS := -lnetfilter_queue
 SRC := $(wildcard src/*.c)
 BIN := filter
 
-VETH_HOST := veth-host
+VETH_SERVER := veth-server
 VETH_CLIENT := veth-client
 NS_CLIENT := client
-HOST_ADDR := 10.200.1.1
-HOST_IP_CIDR := 10.200.1.1/24
+SERVER_ADDR := 10.200.1.1
+SERVER_IP_CIDR := 10.200.1.1/24
 CLIENT_IP := 10.200.1.2/24
 QUEUE_NUM := 0
 
@@ -26,22 +26,22 @@ build:
 set_veth:
 	@echo ">>> Setting up veth pair and client namespace"
 	sudo ip netns del $(NS_CLIENT) 2>/dev/null || true
-	sudo ip link del $(VETH_HOST) 2>/dev/null || true
+	sudo ip link del $(VETH_SERVER) 2>/dev/null || true
 
 	sudo ip netns add $(NS_CLIENT)
-	sudo ip link add $(VETH_HOST) type veth peer name $(VETH_CLIENT)
+	sudo ip link add $(VETH_SERVER) type veth peer name $(VETH_CLIENT)
 	sudo ip link set $(VETH_CLIENT) netns $(NS_CLIENT)
 
-	sudo ip addr add $(HOST_IP_CIDR) dev $(VETH_HOST) 2>/dev/null || true
-	sudo ip link set $(VETH_HOST) up
+	sudo ip addr add $(SERVER_IP_CIDR) dev $(VETH_SERVER) 2>/dev/null || true
+	sudo ip link set $(VETH_SERVER) up
 
 	sudo ip netns exec $(NS_CLIENT) ip addr add $(CLIENT_IP) dev $(VETH_CLIENT) 2>/dev/null || true
 	sudo ip netns exec $(NS_CLIENT) ip link set lo up
 	sudo ip netns exec $(NS_CLIENT) ip link set $(VETH_CLIENT) up
 
 	# ensure a single NFQUEUE rule
-	sudo iptables -t raw -D PREROUTING -i $(VETH_HOST) -j NFQUEUE --queue-num $(QUEUE_NUM) 2>/dev/null || true
-	sudo iptables -t raw -I PREROUTING -i $(VETH_HOST) -j NFQUEUE --queue-num $(QUEUE_NUM)
+	sudo iptables -t raw -D PREROUTING -i $(VETH_SERVER) -j NFQUEUE --queue-num $(QUEUE_NUM) 2>/dev/null || true
+	sudo iptables -t raw -I PREROUTING -i $(VETH_SERVER) -j NFQUEUE --queue-num $(QUEUE_NUM)
 	@echo ">>> Done. Verify with: sudo nft list ruleset"
 
 # Run the filter binary (foreground). Requires root.
@@ -55,10 +55,10 @@ run_no_build:
 	@echo ">>> Running $(BIN) (no build)"
 	sudo ./$(BIN)
 
-# Ping from client namespace to host (quick test)
+# Ping from client namespace to server (quick test)
 test_ping:
-	@echo ">>> Pinging from namespace $(NS_CLIENT) to $(HOST_ADDR)"
-	sudo ip netns exec $(NS_CLIENT) ping -I $(VETH_CLIENT) -c 4 $(HOST_ADDR)
+	@echo ">>> Pinging from namespace $(NS_CLIENT) to $(SERVER_ADDR)"
+	sudo ip netns exec $(NS_CLIENT) ping -I $(VETH_CLIENT) -c 4 $(SERVER_ADDR)
 
 # Show iptables/nft rules for debugging
 show_rules:
@@ -70,9 +70,9 @@ show_rules:
 # Remove veth, namespace and NFQUEUE rule
 clean_veth:
 	@echo ">>> Cleaning veth, namespace and NFQUEUE rule"
-	sudo iptables -t raw -D PREROUTING -i $(VETH_HOST) -j NFQUEUE --queue-num $(QUEUE_NUM) 2>/dev/null || true
+	sudo iptables -t raw -D PREROUTING -i $(VETH_SERVER) -j NFQUEUE --queue-num $(QUEUE_NUM) 2>/dev/null || true
 	sudo ip netns del $(NS_CLIENT) 2>/dev/null || true
-	sudo ip link del $(VETH_HOST) 2>/dev/null || true
+	sudo ip link del $(VETH_SERVER) 2>/dev/null || true
 	@echo ">>> Done."
 
 clean_bin:

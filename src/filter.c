@@ -103,10 +103,10 @@ int main() {
 
     dynInit_interfaces(g_config->interfaces, 4); // dynamic array of interfaces
 
-    //Create veth-host interface
+    //Create veth-server interface
     interface veth1;
     memset(&veth1, 0, sizeof(interface));
-    const char *ifname = "veth-host";
+    const char *ifname = "veth-server";
     
     veth1.id = if_nametoindex(ifname); 
     if (veth1.id == 0) {

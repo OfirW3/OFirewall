@@ -19,7 +19,7 @@ Packets are sent from the kernel to userspace, filtered using simple ACL rules (
 
 ## **Some Requirements**
 
-- The project uses the libnetfilter-queue-dev library — make sure it is installed.
+- The project uses the libnetfilter-queue-dev library and iptables — make sure it is installed.
 - sudo privileges are required to:
 - Create network namespaces
 - Create veth interfaces
@@ -28,26 +28,47 @@ Packets are sent from the kernel to userspace, filtered using simple ACL rules (
 ---
 
 ## **Running the Program (With Test Setup)**
+The program's entry point is in the main function which is inside filter.c
+The main function makes test for the project by allowing the veth-server receive packets from client-veth and send packets to client-veth and drop every other packets that host receives or sends. 
+
+In order to run the project there are some makefile commands for running and testing the filter binary.
 
 ### **Build and Run**
+1. You need to make the client and server namespaces and the client and server veth pair that are linked to the client and server namespaces respectively.
+2. Add the iptables rule for every packet that hits the PREROUTING hook and is intended for the server goes for the NFQUEUE
 
+These command implement step 1 and 2:
+```bash
 sudo make set_veth
+```
+
+3. build the filter binary.
+```bash
 make build
-sudo make run
+``` 
+
+4. run the binary:
+```bash
+make sudo run
+``` 
 
 Leave the terminal running the program open; the program listens for queued packets and returns verdicts.
 
 ## Testing the Firewall
 
-From another terminal, run the simple ping test.
-
+5. From another terminal, run the simple ping test.
+```bash
 sudo make test_ping
+```
 
 This command pings the allowed address. Pinging other addresses should result in packets being dropped with no replies.
 
 ## Cleanup
 
+6. Clean everything belongs to the firewall after you finish.
+```bash
 sudo make clean_all
+```
 
 This removes veth interfaces, network namespaces, and the compiled binary.
 
