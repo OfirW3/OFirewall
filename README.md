@@ -20,6 +20,7 @@ Packets are sent from the kernel to userspace, filtered using simple ACL rules (
 ## **Some Requirements**
 
 - The project uses the libnetfilter-queue-dev library and iptables — make sure it is installed.
+
 - sudo privileges are required to:
 - Create network namespaces
 - Create veth interfaces
@@ -28,7 +29,7 @@ Packets are sent from the kernel to userspace, filtered using simple ACL rules (
 ---
 
 ## **Running the Program (With Test Setup)**
-The program's entry point is in the main function which is inside filter.c
+The program's entry point is in the main function which is inside filter.c.
 The main function makes test for the project by allowing the veth-server receive packets from client-veth and send packets to client-veth and drop every other packets that host receives or sends. 
 
 In order to run the project there are some makefile commands for running and testing the filter binary.
