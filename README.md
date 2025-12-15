@@ -25,14 +25,22 @@ Packets are sent from the kernel to userspace, filtered using simple ACL rules (
 Diagram of the project structure and dependencies:
 
 filter.h
+
 ↓
+
 config.h
+
 ↓
+
 iface.h
+
 ↓
-acl.h
-↙ ↘
-dynamic.h network.h
+
+acl.h -> network.h
+
+↓
+
+dynamic.h 
 
 File roles:
 
