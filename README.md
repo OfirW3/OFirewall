@@ -17,6 +17,33 @@ Packets are sent from the kernel to userspace, filtered using simple ACL rules (
 
 ---
 
+## Short explanation about the `src` files
+
+- The headers are layered like in an OOP-like design: lower-level headers declare utilities and data structures that higher-level headers use.  
+- Each `.c` file implements the helpers and functions declared in its corresponding header.
+
+Diagram of the project structure and dependencies:
+
+filter.h
+↓
+config.h
+↓
+iface.h
+↓
+acl.h
+↙ ↘
+dynamic.h network.h
+
+File roles:
+
+- `filter.h` — project entry point and highest-level module: declares the packet filtering callback.
+- `config.h` — declares the configuration struct: holds the dynamic array of interfaces and the interface map.  
+- `iface.h` — Declares an interface struct: describes an interface and it's inbound/outbound ACLs.  
+- `acl.h` — ACL structures: defines an access-control entry (ACE) struct and the dynamic array of ACEs, ACL container, (`dynamic_stdacl`).  
+- `dynamic.h` — generic dynamic array facility: macro-based generic container used by the project for resizable arrays.
+- `network.h` — network utilities: defines the `network` struct (IP + CIDR) and helpers to build/print IPs.
+
+
 ## **Some Requirements**
 
 - The project uses the libnetfilter-queue-dev library and iptables — make sure it is installed.
@@ -33,6 +60,9 @@ The program's entry point is in the main function which is inside filter.c.
 The main function makes test for the project by allowing the veth-server receive packets from client-veth and send packets to client-veth and drop every other packets that host receives or sends. 
 
 In order to run the project there are some makefile commands for running and testing the filter binary.
+
+---
+
 
 ### **Build and Run**
 1. You need to make the client and server namespaces and the client and server veth pair that are linked to the client and server namespaces respectively.
@@ -55,6 +85,9 @@ make sudo run
 
 Leave the terminal running the program open; the program listens for queued packets and returns verdicts.
 
+---
+
+
 ## Testing the Firewall
 
 5. From another terminal, run the simple ping test.
@@ -63,6 +96,9 @@ sudo make test_ping
 ```
 
 This command pings the allowed address. Pinging other addresses should result in packets being dropped with no replies.
+
+---
+
 
 ## Cleanup
 
@@ -73,6 +109,11 @@ sudo make clean_all
 
 This removes veth interfaces, network namespaces, and the compiled binary.
 
+---
+
+
 ## Last thing
 
 Feel free to experiment with the firewall logic by editing the main function inside src/filter.c. The example ACLs used by the program are defined at startup in that file. Ensure veth-host exists before running the binary, and use the provided test netns and veth setup to avoid local-traffic cases that do not traverse PREROUTING.
+
+---
