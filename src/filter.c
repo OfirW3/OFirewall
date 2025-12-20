@@ -82,7 +82,7 @@ void cleanup_nfqueue(struct nfq_q_handle *q0, struct nfq_q_handle *q1, struct nf
 
 int main() {
     /*
-    drop any packets except for the allowed traffic (client -> server and server -> client)
+    drop any packets except for the allowed traffic (client -> host and host -> client)
     */
 
     //Allocate global config
@@ -103,10 +103,10 @@ int main() {
 
     dynInit_interfaces(g_config->interfaces, 4); // dynamic array of interfaces
 
-    //Create veth-server interface
+    //Create veth-host interface
     interface veth1;
     memset(&veth1, 0, sizeof(interface));
-    const char *ifname = "veth-server";
+    const char *ifname = "veth-host";
     
     veth1.id = if_nametoindex(ifname); 
     if (veth1.id == 0) {
@@ -132,17 +132,17 @@ int main() {
     dynInit_stdacl(veth1.aclin, 4);
     dynInit_stdacl(veth1.aclout, 4);
 
-    //Add the ACL rules for allowed traffic between the server and client
-    network *server_addr = malloc(sizeof(network));
-    server_addr->ip = make_ip(10, 200, 1, 1);
-    server_addr->subnet = 24;
+    //Add the ACL rules for allowed traffic between the host and client
+    network *host_addr = malloc(sizeof(network));
+    host_addr->ip = make_ip(10, 200, 1, 1);
+    host_addr->subnet = 24;
     
     network *client_addr = malloc(sizeof(network));
     client_addr->ip = veth1.net->ip;
     client_addr->subnet = 24;
 
     // Add rules
-    add_rule(veth1.aclin, server_addr, permit);
+    add_rule(veth1.aclin, host_addr, permit);
     add_rule(veth1.aclout, client_addr, permit);
 
     //Add veth1 into config
@@ -232,7 +232,7 @@ int main() {
     
     free(g_config->iface_map);
     free(g_config->interfaces);
-    free(server_addr);
+    free(host_addr);
     free(client_addr);
     free(inbound);
     free(outbound);
