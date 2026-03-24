@@ -1,6 +1,7 @@
 #pragma once
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #define DECLARE_DYNAMIC(type, name) \
 typedef struct s_dynamic_##name{ \
@@ -15,7 +16,7 @@ static void dynInit_##name(dynamic_##name *arr, unsigned int capacity) { \
     arr->capacity = capacity; \
 } \
 \
-static void dynInsertValue_##name(type value, dynamic_##name *arr) { \
+static bool dynInsertValue_##name(type value, dynamic_##name *arr) { \
     if (arr->size == arr->capacity) { \
         arr->capacity = arr->capacity * 2; \
     } \
@@ -24,22 +25,23 @@ static void dynInsertValue_##name(type value, dynamic_##name *arr) { \
     } \
     arr->data = (type*)realloc(arr->data, sizeof(type) * arr->capacity); \
     if (arr->data == NULL) { \
-        printf("Allocation failed"); \
-        exit(1); \
+        return false; \
     } \
     arr->data[arr->size] = value; \
     arr->size++; \
+    return true; \
 } \
 \
-static void dynRemoveByIndex_##name(unsigned int index, dynamic_##name *arr) { \
-    if (index >= arr->size) return; \
+static bool dynRemoveByIndex_##name(unsigned int index, dynamic_##name *arr) { \
+    if (index >= arr->size) return false; \
     for (unsigned int i = index; i < arr->size - 1; i++) { \
         arr->data[i] = arr->data[i + 1]; \
     } \
     arr->size--; \
+    return true; \
 } \
 \
-static type *dynGetByIndex_##name(uint16_t index, dynamic_##name *arr) { \
+static type* dynGetByIndex_##name(uint16_t index, dynamic_##name *arr) { \
     if (index < arr->size) return &arr->data[index]; \
     return NULL; \
 } \

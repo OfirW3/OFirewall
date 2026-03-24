@@ -38,5 +38,3 @@ typedef struct s_interface_map{
 }interface_map;
 
 DECLARE_DYNAMIC(interface, interfaces)
-
-

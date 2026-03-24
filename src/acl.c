@@ -1,12 +1,14 @@
 #include "acl.h"
 #include <stdint.h>
 
-void add_rule(dynamic_stdacl *acl, network *net, action act){
+bool add_rule(dynamic_stdacl *acl, network *net, action act){
     stdace insert_entry;
     insert_entry.net = net;
     insert_entry.act = act;
-    dynInsertValue_stdacl(insert_entry, acl);
-    return;
+    if(!dynInsertValue_stdacl(insert_entry, acl)){
+        return false;
+    }
+    return true;
 }
 
 action check_rule(dynamic_stdacl *acl, struct iphdr *ip_header, bool incoming){ //acl and net belongs to the config and ip is the ip sample we want to take action on

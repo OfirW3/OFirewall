@@ -13,7 +13,7 @@
 
 volatile sig_atomic_t stop_program = 0;
 
-int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct nfq_data *nfa, void *data){
+static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct nfq_data *nfa, void *data){
         if(!data){
         fprintf(stderr, "Callback: Invalid data parameter, no verdict can be made.\n");
         return 1;
@@ -31,7 +31,7 @@ int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct nfq_data *nfa, vo
     id = ntohl(ph->packet_id);
 
     int ifindex = nfq_get_indev(nfa);  // Incoming interface
-    if(ifindex < 0 || ifindex > max_ifaces){
+    if(ifindex < 0 || ifindex >= max_ifaces){
         fprintf(stderr,"Callback: ifindex: %d is out of range\n",ifindex);
         return 1;
     }
@@ -44,7 +44,7 @@ int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct nfq_data *nfa, vo
         struct iphdr *ip = (struct iphdr*)payload;
         switch(queue_id){
             case 1:
-                if(processPacket(g_config->iface_map->iface[ifindex], ip, true) == permit)
+                if(process_packet(g_config->iface_map->iface[ifindex], ip, true) == permit)
                 {
                     printf("Callback: a valid rule was found for the inbound packet. Accepting! \n");
                     return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
@@ -54,7 +54,7 @@ int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct nfq_data *nfa, vo
                     return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
                 }
             case 2:
-                if(processPacket(g_config->iface_map->iface[ifindex], ip, false) == permit){
+                if(process_packet(g_config->iface_map->iface[ifindex], ip, false) == permit){
                     printf("Callback: a valid rule was found for the outbound packet. Accepting!\n");
                     return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
                 }
@@ -62,19 +62,18 @@ int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct nfq_data *nfa, vo
                     printf("Callback: a valid rule was found for the inbound packet. Dropping! \n");
                     return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
                 }
-                
         }
+    }
     fprintf(stderr, "Warning: No valid verdict was taken; Dropping the packet.\n");
     return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
-    }
 }
 
-void handle_sigint(int sig){
+static void handle_sigint(int sig){
     stop_program = 1;
     printf("\nSIGINT recived: Waiting for program to terminate...\n");
 }
 
-void cleanup_nfqueue(struct nfq_q_handle *q0, struct nfq_q_handle *q1, struct nfq_handle *h) {
+static void cleanup_nfqueue(struct nfq_q_handle *q0, struct nfq_q_handle *q1, struct nfq_handle *h) {
     if (q0) nfq_destroy_queue(q0);
     if (q1) nfq_destroy_queue(q1);
     if (h)  nfq_close(h);
@@ -82,9 +81,9 @@ void cleanup_nfqueue(struct nfq_q_handle *q0, struct nfq_q_handle *q1, struct nf
 
 int main() {
     /*
-    drop any packets except for the allowed traffic (client -> host and host -> client)
+    Example execution: Drop any packets except for the allowed traffic (client -> host and host -> client)
     */
-
+    int main_status = 1; //Defult initianlization to error
     //Allocate global config
     g_config = malloc(sizeof(config));
     if (!g_config) {
@@ -92,26 +91,23 @@ int main() {
         return 1;
     }
 
-    //Allocate map and dynamic array for the interfaces
+    //Allocate map for the interfaces
     g_config->iface_map = calloc(1, sizeof(interface_map)); // All entries NULL
-    g_config->interfaces = malloc(sizeof(dynamic_interfaces));
 
-    if (!g_config->interfaces || !g_config->iface_map) {
-        fprintf(stderr, "Error allocating internal config arrays\n");
-        return 1;
+    if (!g_config->iface_map) {
+        fprintf(stderr, "Error: Allocation of internal config map failed \n");
+        goto cleanup_config;
     }
-
-    dynInit_interfaces(g_config->interfaces, 4); // dynamic array of interfaces
 
     //Create veth-host interface
     interface veth1;
     memset(&veth1, 0, sizeof(interface));
-    const char *ifname = "veth-host";
+    const char* ifname = "veth-host";
     
     veth1.id = if_nametoindex(ifname); 
     if (veth1.id == 0) {
         fprintf(stderr, "Error: the network interface named: %s was not found\n", ifname);
-        return 1;
+        goto cleanup_config;
     }
     printf("Detected %s's ifindex: %d\n", ifname, veth1.id);
     strncpy(veth1.zone_name, ifname, sizeof(veth1.zone_name) - 1);
@@ -122,35 +118,47 @@ int main() {
 
     /* Example IP network: 10.200.1.2/24 */
     veth1.net = malloc(sizeof(network));
+    if(!veth1.net){
+        fprintf(stderr, "Error: Allocation of veth1's IP address failed \n");
+        goto cleanup_config;
+    }
     veth1.net->ip = make_ip(10, 200, 1, 2); // Client's address
     veth1.net->subnet = 24;
 
    //Allocate dynamic ACLs
     veth1.aclin = malloc(sizeof(dynamic_stdacl));
     veth1.aclout = malloc(sizeof(dynamic_stdacl));
-
+    if(!veth1.aclin || !veth1.aclout){
+        fprintf(stderr, "Error: Allocation of veth1's ACLs failed \n");
+        goto cleanup_veth1;
+    }
     dynInit_stdacl(veth1.aclin, 4);
     dynInit_stdacl(veth1.aclout, 4);
 
     //Add the ACL rules for allowed traffic between the host and client
     network *host_addr = malloc(sizeof(network));
+    if(!host_addr){
+        fprintf(stderr, "Error: Allocation of hosts's IP address failed \n");
+        goto cleanup_veth1;
+    }
     host_addr->ip = make_ip(10, 200, 1, 1);
     host_addr->subnet = 24;
     
-    network *client_addr = malloc(sizeof(network));
+    network* client_addr = malloc(sizeof(network));
+    if(!client_addr){
+        fprintf(stderr, "Error: Allocation of client's IP address failed \n");
+        goto cleanup_host_addr;
+    }
     client_addr->ip = veth1.net->ip;
     client_addr->subnet = 24;
 
     // Add rules
-    add_rule(veth1.aclin, host_addr, permit);
-    add_rule(veth1.aclout, client_addr, permit);
-
-    //Add veth1 into config
-    addInterface(g_config, veth1);
+    // * CHANGE THE RULS AS YOU LIKE *
+    add_rule(veth1.aclin, host_addr, drop);
+    add_rule(veth1.aclout, client_addr, drop);
 
     //Add veth1 into map
-    // Ensure we point to the data inside the dynamic array, not the local stack variable
-    g_config->iface_map->iface[veth1.id] = &g_config->interfaces->data[0];
+    g_config->iface_map->iface[veth1.id] = &veth1;
 
     printf("Firewall initialized with veth1 (ifindex = %d)\n", veth1.id);
 
@@ -158,11 +166,8 @@ int main() {
     struct nfq_handle *h;
     struct nfq_q_handle *q0;
     struct nfq_q_handle *q1;
-    int *inbound = (int *)malloc(sizeof(int));
-    int *outbound = (int *)malloc(sizeof(int));
-    
-    *inbound = 1;
-    *outbound = 2;
+    int inbound = 1;
+    int outbound = 2;
 
     h = nfq_open();
     if (!h) {
@@ -176,14 +181,14 @@ int main() {
     }
 
     // Inbound netfilter queue (Queue 0)
-    q0 = nfq_create_queue(h, 0, &cb, (void *)inbound);
+    q0 = nfq_create_queue(h, 0, &cb, (void*)&inbound);
     if (!q0) {
         fprintf(stderr, "Error: creation of nfq - q0 has failed\n");
         return 1;
     }
 
     // Outbound netfilter queue (Queue 1)
-    q1 = nfq_create_queue(h, 1, &cb, (void *)outbound);
+    q1 = nfq_create_queue(h, 1, &cb, (void*)&outbound);
     if (!q1) {
         fprintf(stderr, "Error: creation of nfq - q1 has failed\n");
         return 1;
@@ -224,19 +229,21 @@ int main() {
     }
 
     printf("Exited the program safely!\n");
+    main_status = 0;
 
     // Clean up
-    nfq_destroy_queue(q0);
-    nfq_destroy_queue(q1);
-    nfq_close(h);
-    
-    free(g_config->iface_map);
-    free(g_config->interfaces);
-    free(host_addr);
+    cleanup_nfqueue(q0, q1, h);
     free(client_addr);
-    free(inbound);
-    free(outbound);
+    cleanup_host_addr:
+    free(host_addr);
+    cleanup_veth1:
+    dynFree_stdacl(veth1.aclin);
+    dynFree_stdacl(veth1.aclout);
+    free(veth1.aclin);
+    free(veth1.aclout);
+    free(veth1.net);
+    cleanup_config:
+    free(g_config->iface_map);
     free(g_config);
-
-    return 0;
+    return main_status;
 }
