@@ -88,7 +88,7 @@ make build
 
 4. run the binary:
 ```bash
-make sudo run
+sudo make run
 ``` 
 
 Leave the terminal running the program open; the program listens for queued packets and returns verdicts.
