@@ -14,4 +14,4 @@ test_ping:
 
 build:
 	@echo ">>> Building"
-	gcc -O2 -Isrc $(wildcard src/*.c) -o filter -lnetfilter_queue
+	gcc -g -Isrc $(wildcard src/*.c) -o filter -lnetfilter_queue
