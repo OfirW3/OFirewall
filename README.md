@@ -51,6 +51,17 @@ File roles:
 - `dynamic.h` — generic dynamic array facility: macro-based generic container used by the project for resizable arrays.
 - `network.h` — network utilities: defines the `network` struct (IP + CIDR) and helpers to build/print IPs.
 
+## Performance Calculations
+
+To accurately measure the performance overhead introduced by the userspace packet filter, we calculate the difference between the total filtered latency and the raw baseline latency of the local network stack:
+
+> **Filter Overhead** = Total Filtered Latency - Unfiltered Baseline Latency
+
+- Unfiltered Baseline Latency: Measured by running a flood ping of 1,000 packets across the veth pair without any iptables NFQUEUE rules applied. This represents the raw speed of the Linux kernel moving packets across namespaces (averaging around 0.006 ms per packet locally).
+- Total Filtered Latency: Measured by running the same ping test with the iptables rules active and the filter binary running. This includes the baseline network travel time plus the filter's processing time (averaging 0.085 ms per packet locally).
+* **Filter Overhead:** By subtracting the baseline from the total latency, the processing cost of the userspace firewall is revealed.
+
+- Calculation: `Filter Overhead = 0.085 ms - 0.006 ms = 0.079 ms` (79 microseconds)
 
 ## **Some Requirements**
 
